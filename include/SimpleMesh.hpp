@@ -1,0 +1,25 @@
+#pragma once
+#include <vector>
+#include <Vector3.hpp>
+#include <Vector2.hpp>
+
+namespace ab {
+
+struct SimpleMesh
+{
+	//vertice attribute arrays
+	std::vector<Vector3> positions;
+	std::vector<Vector3> normals;
+	//connectivity
+	std::vector<std::vector<int>> faces; //list of indices
+
+	inline bool has_normals() const {
+		return normals.size();
+	}
+};
+
+
+bool read_ply(SimpleMesh &mesh,const std::string &file);
+bool write_ply(const SimpleMesh &mesh,const std::string &file);
+
+}
