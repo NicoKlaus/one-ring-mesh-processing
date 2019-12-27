@@ -144,4 +144,31 @@ namespace ab{
 		}
 		return true;
 	}
+
+	bool create_simple_mesh_from(SimpleMesh & s_mesh, HalfedgeMesh & he_mesh)
+	{
+		s_mesh.positions.resize(0);
+		s_mesh.faces.resize(0);
+		s_mesh.normals.resize(0);
+		for (auto vertice : he_mesh.vertices) {
+			s_mesh.positions.emplace_back(vertice.position);
+		}
+		for (int i=0; i < he_mesh.loops.size(); ++i) {
+			if (he_mesh.loops[i].is_border) {
+				continue;
+			}
+
+			int origin = he_mesh.loops[i].he;
+			int next = origin;
+			auto &faces = s_mesh.faces;
+			faces.emplace_back();
+			auto &face = faces.back();
+			do {
+				face.emplace_back(he_mesh.half_edges[next].origin);
+				next = he_mesh.half_edges[next].next;
+			} while (next != origin);
+			
+		}
+		return false;
+	}
 }

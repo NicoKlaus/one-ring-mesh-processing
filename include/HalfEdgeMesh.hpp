@@ -32,4 +32,5 @@ namespace ab {
 	};
 
 	bool create_he_mesh_from(HalfedgeMesh& he_mesh, SimpleMesh& s_mesh);
+	bool create_simple_mesh_from(SimpleMesh& s_mesh, HalfedgeMesh& he_mesh);
 }
