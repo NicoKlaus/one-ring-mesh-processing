@@ -2,6 +2,7 @@
 #include <vector>
 #include <Vector3.hpp>
 #include <Vector2.hpp>
+#include <string>
 
 namespace ab {
 
