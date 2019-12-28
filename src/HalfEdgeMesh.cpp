@@ -32,6 +32,7 @@ namespace ab{
 		Vertex v;
 		for (size_t i = 0; i < s_mesh.positions.size(); ++i) {
 			v.position = s_mesh.positions[i];
+			v.he = -1;
 			he_mesh.vertices.push_back(v);
 		}
 
@@ -170,5 +171,36 @@ namespace ab{
 			
 		}
 		return false;
+	}
+
+	void calculate_normals_he_seq(HalfedgeMesh &mesh) {
+		//initialize normal array
+		mesh.normals.resize(mesh.vertices.size());
+		//calculate normal without weight
+		for (int i = 0; i < mesh.vertices.size();++i) {
+			auto& vert = mesh.vertices[i];
+			if (vert.he == -1) {
+				continue;
+			}
+			int he = vert.he;
+			Vector3 normal{ 0.f,0.f,0.f };
+			do {
+				HalfEdge& halfedge = mesh.half_edges[he];
+				Vector3 a = vert.position;
+				Vector3 b = mesh.vertices[mesh.half_edges[halfedge.next].origin].position;
+				normal += cross(a, b);
+				he = halfedge.next;
+			} while (he != vert.he);
+			normal = normalized(normal);
+			mesh.normals[i] = normal;
+		}
+	}
+
+	void calculate_normals_he_parallel(HalfedgeMesh *mesh) {
+
+	}
+
+	__global__ void kernel_calculate_normals(Vertex* vertices, HalfEdge* halfedges, Vector3 *normals,unsigned vertice_count) {
+
 	}
 }

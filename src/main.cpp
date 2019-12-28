@@ -21,6 +21,7 @@ bool test_mesh(string fn) {
 	HalfedgeMesh he_mesh;
 	std::cout << "creating he mesh from simple mesh\n";
 	create_he_mesh_from(he_mesh, mesh);
+	calculate_normals_he_seq(he_mesh);
 
 	SimpleMesh  copy_mesh;
 	create_simple_mesh_from(copy_mesh, he_mesh);

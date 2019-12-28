@@ -2,12 +2,13 @@
 #include <SimpleMesh.hpp>
 #include <Vector3.hpp>
 #include <vector>
+#include <thrust/host_vector.h>
 
 namespace ab {
 
 	struct Vertex {
 		Vector3 position;
-		int he;
+		int he; //is -1 when no face contains this vertex
 	};
 
 	struct Loop {
@@ -33,4 +34,5 @@ namespace ab {
 
 	bool create_he_mesh_from(HalfedgeMesh& he_mesh, SimpleMesh& s_mesh);
 	bool create_simple_mesh_from(SimpleMesh& s_mesh, HalfedgeMesh& he_mesh);
+	void calculate_normals_he_seq(HalfedgeMesh& mesh);
 }
