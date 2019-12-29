@@ -1,5 +1,7 @@
 #include <HalfEdgeMesh.hpp>
 #include <algorithm>
+#include <thrust/device_vector.h>
+
 
 using namespace std;
 
@@ -25,7 +27,21 @@ namespace ab{
 		return (a.vertex_a < b.vertex_a) | ((a.vertex_a == b.vertex_a) & (a.vertex_b < b.vertex_b));
 	}
 
-	bool create_he_mesh_from(HalfedgeMesh& he_mesh, SimpleMesh& s_mesh) {
+	bool read_ply(HalfedgeMesh& mesh, const std::string& file)
+	{
+		SimpleMesh s_mesh;
+		if (!read_ply(s_mesh, file)) return false;
+		return create_he_mesh_from(mesh, s_mesh);
+	}
+
+	bool write_ply(const HalfedgeMesh& mesh, const std::string& file)
+	{
+		SimpleMesh s_mesh;
+		if (!create_simple_mesh_from(s_mesh, mesh)) return false;
+		return write_ply(s_mesh, file);
+	}
+
+	bool create_he_mesh_from(HalfedgeMesh& he_mesh,const SimpleMesh& s_mesh) {
 		he_mesh.vertices.resize(0);
 		he_mesh.half_edges.resize(0);
 		//copy vertex positions
@@ -146,11 +162,12 @@ namespace ab{
 		return true;
 	}
 
-	bool create_simple_mesh_from(SimpleMesh & s_mesh, HalfedgeMesh & he_mesh)
+	bool create_simple_mesh_from(SimpleMesh& s_mesh,const HalfedgeMesh& he_mesh)
 	{
 		s_mesh.positions.resize(0);
 		s_mesh.faces.resize(0);
 		s_mesh.normals.resize(0);
+		s_mesh.normals = he_mesh.normals;
 		for (auto vertice : he_mesh.vertices) {
 			s_mesh.positions.emplace_back(vertice.position);
 		}
@@ -170,7 +187,7 @@ namespace ab{
 			} while (next != origin);
 			
 		}
-		return false;
+		return true;
 	}
 
 	void calculate_normals_he_seq(HalfedgeMesh &mesh) {
@@ -186,7 +203,7 @@ namespace ab{
 			Vector3 normal{ 0.f,0.f,0.f };
 			do {
 				HalfEdge& halfedge = mesh.half_edges[he];
-				Vector3 a = vert.position;
+				Vector3 a = mesh.vertices[halfedge.origin].position;
 				Vector3 b = mesh.vertices[mesh.half_edges[halfedge.next].origin].position;
 				normal += cross(a, b);
 				he = halfedge.next;
@@ -196,11 +213,5 @@ namespace ab{
 		}
 	}
 
-	void calculate_normals_he_parallel(HalfedgeMesh *mesh) {
 
-	}
-
-	__global__ void kernel_calculate_normals(Vertex* vertices, HalfEdge* halfedges, Vector3 *normals,unsigned vertice_count) {
-
-	}
 }

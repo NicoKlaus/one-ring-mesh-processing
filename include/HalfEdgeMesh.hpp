@@ -2,7 +2,7 @@
 #include <SimpleMesh.hpp>
 #include <Vector3.hpp>
 #include <vector>
-#include <thrust/host_vector.h>
+
 
 namespace ab {
 
@@ -32,7 +32,10 @@ namespace ab {
 		std::vector<Loop> loops;
 	};
 
-	bool create_he_mesh_from(HalfedgeMesh& he_mesh, SimpleMesh& s_mesh);
-	bool create_simple_mesh_from(SimpleMesh& s_mesh, HalfedgeMesh& he_mesh);
+	bool read_ply(HalfedgeMesh& mesh, const std::string& file);
+	bool write_ply(const HalfedgeMesh& mesh, const std::string& file);
+
+	bool create_he_mesh_from(HalfedgeMesh& he_mesh,const SimpleMesh& s_mesh);
+	bool create_simple_mesh_from(SimpleMesh& s_mesh,const HalfedgeMesh& he_mesh);
 	void calculate_normals_he_seq(HalfedgeMesh& mesh);
 }

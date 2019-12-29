@@ -47,6 +47,24 @@ namespace ab {
 		}
 		plyOut.getElement("vertex").addProperty<float>("z", coordsX);
 		
+		if (mesh.normals.size() > 0 && mesh.normals.size() == mesh.positions.size()) {
+			coordsX.resize(mesh.normals.size());
+			for (size_t i = 0; i < mesh.normals.size(); ++i) {
+				coordsX[i] = mesh.normals[i].x;
+			}
+			plyOut.getElement("vertex").addProperty<float>("nx", coordsX);
+
+			for (size_t i = 0; i < mesh.normals.size(); ++i) {
+				coordsX[i] = mesh.normals[i].y;
+			}
+			plyOut.getElement("vertex").addProperty<float>("ny", coordsX);
+
+			for (size_t i = 0; i < mesh.normals.size(); ++i) {
+				coordsX[i] = mesh.normals[i].z;
+			}
+			plyOut.getElement("vertex").addProperty<float>("nz", coordsX);
+		}
+
 		//faces
 		plyOut.addElement("face", mesh.faces.size());
 		plyOut.getElement("face").addListProperty("vertex_indices", mesh.faces);

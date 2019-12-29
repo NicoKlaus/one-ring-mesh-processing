@@ -22,7 +22,7 @@ namespace ab {
 	template <typename REAL>
 	Vector3_t<REAL> cross(const Vector3_t<REAL> &a,const Vector3_t<REAL> &b) {
 		Vector3_t<REAL> v;
-		v.x = a.y * b.z - a.y * b.z;
+		v.x = a.y * b.z - a.z * b.y;
 		v.y = a.z * b.x - a.x * b.z;
 		v.z = a.x * b.y - a.y * b.x;
 		return v;

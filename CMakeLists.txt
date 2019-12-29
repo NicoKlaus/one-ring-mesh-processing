@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(onering LANGUAGES CUDA CXX)
-message("one ring test 0.1.2")
+message("one ring test 0.1.3")
 set (CMAKE_CXX_STANDARD 11)
 set (BOOST_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/lib/boost_1_72_0" CACHE PATH "")
 set( Boost_USE_MULTITHREADED ON )

@@ -2,6 +2,7 @@
 #include <boost/program_options.hpp>
 #include <SimpleMesh.hpp>
 #include <HalfEdgeMesh.hpp>
+#include <fast_mesh_operations.h>
 #include <iostream>
 #include <string>
 
@@ -21,13 +22,31 @@ bool test_mesh(string fn) {
 	HalfedgeMesh he_mesh;
 	std::cout << "creating he mesh from simple mesh\n";
 	create_he_mesh_from(he_mesh, mesh);
-	calculate_normals_he_seq(he_mesh);
 
-	SimpleMesh  copy_mesh;
-	create_simple_mesh_from(copy_mesh, he_mesh);
-	string hes_fn = fn + "-he-to-simple.ply";
-	std::cout << "creating file: " << hes_fn << '\n';
-	write_ply(copy_mesh, hes_fn);
+	{
+		string hes_fn = fn + "-he-to-simple.ply";
+		std::cout << "creating file: " << hes_fn << '\n';
+		if (!write_ply(he_mesh, hes_fn)) {
+			std::cerr << "failed creating file: " << hes_fn << '\n';
+		}
+	}
+	{
+		calculate_normals_he_seq(he_mesh);
+		string hes_fn = fn + "-he-seq-normals.ply";
+		std::cout << "creating file: " << hes_fn << '\n';
+		if (!write_ply(he_mesh, hes_fn)) {
+			std::cerr << "failed creating file: " << hes_fn << '\n';
+		}
+	}
+	{
+		std::cout << "calculate normals with cuda\n";
+		calculate_normals_he_parallel_no_weight(&he_mesh);
+		string hes_fn = fn + "-he-cuda-normals.ply";
+		std::cout << "creating file: " << hes_fn << '\n';
+		if (!write_ply(he_mesh, hes_fn)) {
+			std::cerr << "failed creating file: " << hes_fn << '\n';
+		}
+	}
 	return true;
 }
 
