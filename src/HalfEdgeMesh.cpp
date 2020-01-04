@@ -1,4 +1,5 @@
 #include <HalfEdgeMesh.hpp>
+#include <fast_mesh_operations.h>
 #include <algorithm>
 #include <thrust/device_vector.h>
 
@@ -200,12 +201,15 @@ namespace ab{
 				continue;
 			}
 			int he = vert.he;
-			Vector3 normal{ 0.f,0.f,0.f };
+			float3 normal{ 0.f,0.f,0.f };
 			do {
 				HalfEdge& halfedge = mesh.half_edges[he];
-				Vector3 a = mesh.vertices[halfedge.origin].position;
-				Vector3 b = mesh.vertices[mesh.half_edges[halfedge.next].origin].position;
-				normal += cross(a, b);
+				float3 a = mesh.vertices[halfedge.origin].position;
+				float3 b = mesh.vertices[mesh.half_edges[halfedge.next].origin].position;
+				float3 v = cross3df(a, b);
+				normal.x += v.x;
+				normal.y += v.y;
+				normal.z += v.z;
 				he = halfedge.next;
 			} while (he != vert.he);
 			normal = normalized(normal);

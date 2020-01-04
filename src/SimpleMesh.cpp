@@ -1,6 +1,6 @@
 #include <SimpleMesh.hpp>
 #include <happly.h>
-#include <vector>
+#include <fast_mesh_operations.h>
 
 using namespace std;
 using namespace happly;
@@ -15,7 +15,7 @@ namespace ab {
 		std::vector<float> yPos = plyIn.getElement("vertex").getProperty<float>("y");
 		std::vector<float> zPos = plyIn.getElement("vertex").getProperty<float>("z");
 
-		std::vector<Vector3> &positions = mesh.positions;
+		std::vector<float3> &positions = mesh.positions;
 		positions.resize(xPos.size());
 		for (size_t i = 0; i < positions.size(); ++i) {
 			positions[i].x = xPos[i];

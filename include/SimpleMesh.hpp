@@ -1,16 +1,15 @@
 #pragma once
 #include <vector>
-#include <Vector3.hpp>
-#include <Vector2.hpp>
 #include <string>
+#include <cuda_runtime.h>
 
 namespace ab {
 
 struct SimpleMesh
 {
 	//vertice attribute arrays
-	std::vector<Vector3> positions;
-	std::vector<Vector3> normals;
+	std::vector<float3> positions;
+	std::vector<float3> normals;
 	//connectivity
 	std::vector<std::vector<int>> faces; //list of indices
 

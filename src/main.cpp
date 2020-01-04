@@ -40,6 +40,7 @@ bool test_mesh(string fn) {
 	}
 	{
 		std::cout << "calculate normals with cuda\n";
+		he_mesh.normals.clear();
 		calculate_normals_he_parallel_no_weight(&he_mesh);
 		string hes_fn = fn + "-he-cuda-normals.ply";
 		std::cout << "creating file: " << hes_fn << '\n';

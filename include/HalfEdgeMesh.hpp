@@ -1,13 +1,12 @@
 #pragma once
 #include <SimpleMesh.hpp>
-#include <Vector3.hpp>
 #include <vector>
 
 
 namespace ab {
 
 	struct Vertex {
-		Vector3 position;
+		float3 position;
 		int he; //is -1 when no face contains this vertex
 	};
 
@@ -27,7 +26,7 @@ namespace ab {
 
 	struct HalfedgeMesh {
 		std::vector<Vertex> vertices;
-		std::vector<Vector3> normals;
+		std::vector<float3> normals;
 		std::vector<HalfEdge> half_edges;
 		std::vector<Loop> loops;
 	};
