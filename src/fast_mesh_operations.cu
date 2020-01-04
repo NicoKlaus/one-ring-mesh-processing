@@ -9,6 +9,7 @@ namespace ab {
 	__global__ void kernel_calculate_normals_no_weight(Vertex* vertices, HalfEdge* half_edges, float3* normals, unsigned vertice_count) {
 		int stride = blockDim.x;
 		int offset = threadIdx.x;
+		//printf("BLOCK %d launched by the host with stride %d\n", offset,stride);
 		//calculate normal without weight
 		for (int i = offset; i < vertice_count; i+=stride) {
 			auto& vert = vertices[i];
@@ -38,8 +39,8 @@ namespace ab {
 		thrust::device_vector<float3> normals = mesh->normals;
 		kernel_calculate_normals_no_weight<<<1,128>>>(vertices.data().get(), halfedges.data().get(), normals.data().get(), vertices.size());
 		cudaDeviceSynchronize();
-
-		cudaMemcpyFromSymbol(&mesh->normals.front(), normals.data().get(),mesh->normals.size());
+		printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
+		thrust::copy(normals.begin(), normals.end(), mesh->normals.begin());
 	}
 }
 
