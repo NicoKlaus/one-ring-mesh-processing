@@ -22,7 +22,22 @@ namespace ab {
 			positions[i].y = yPos[i];
 			positions[i].z = zPos[i];
 		}
-		mesh.faces = plyIn.getElement("face").getListProperty<int>("vertex_indices");
+		std::vector<std::vector<int>> faces_vector = plyIn.getElement("face").getListProperty<int>("vertex_indices");
+
+		//clear vectors
+		mesh.faces.resize(0);
+		mesh.face_indices.resize(0);
+		mesh.face_sizes.resize(0);
+		//encode face information inside 3 arrays
+		for (auto face : faces_vector) {
+			//store begin and size of the face
+			mesh.face_sizes.emplace_back(face.size());
+			mesh.faces.emplace_back(mesh.face_indices.size());
+			//append face indices
+			for (auto vert : face) {
+				mesh.face_indices.emplace_back(vert);
+			}
+		}
 		return true;
 	}
 
@@ -66,8 +81,16 @@ namespace ab {
 		}
 
 		//faces
-		plyOut.addElement("face", mesh.faces.size());
-		plyOut.getElement("face").addListProperty("vertex_indices", mesh.faces);
+		std::vector<std::vector<int>> faces_vector;
+		for (int i = 0;i < mesh.faces.size();++i) {
+			std::vector<int> face;
+			for (int j = 0; j < mesh.face_sizes[i];++j) {
+				face.emplace_back(mesh.face_indices[mesh.faces[i] + j]);
+			}
+			faces_vector.emplace_back(face);
+		}
+		plyOut.addElement("face", faces_vector.size());
+		plyOut.getElement("face").addListProperty("vertex_indices", faces_vector);
 		plyOut.write(file);
 		return true;
 	}
