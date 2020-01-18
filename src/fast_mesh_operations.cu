@@ -6,6 +6,15 @@ using namespace thrust;
 
 namespace ab {
 
+	__global__ void kernel_calculate_normals_no_weight(float3 positions,int* faces,int* face_indices,int* face_sizes, float3* normals, int face_count) {
+		int stride = blockDim.x;
+		int offset = threadIdx.x;
+		for (int i = offset; i < face_count; i += stride) {
+			
+			//atomicAdd_system(addr, 10);
+		}
+	}
+
 	__global__ void kernel_calculate_normals_no_weight(Vertex* vertices, HalfEdge* half_edges, float3* normals, unsigned vertice_count) {
 		int stride = blockDim.x;
 		int offset = threadIdx.x;
@@ -32,7 +41,7 @@ namespace ab {
 		}
 	}
 
-	__global__ void kernel_calculate_centroids(Vertex* vertices, HalfEdge* half_edges,Loop* loops, float3* centroids, unsigned loop_count) {
+	__global__ void kernel_calculate_face_centroids(Vertex* vertices, HalfEdge* half_edges,Loop* loops, float3* centroids, unsigned loop_count) {
 		int stride = blockDim.x;
 		int offset = threadIdx.x;
 		for (int i = offset; i < loop_count; i += stride) {
@@ -77,7 +86,7 @@ namespace ab {
 		thrust::device_vector<Vertex> vertices = mesh->vertices;
 		thrust::device_vector<Loop> loops = mesh->loops;
 		thrust::device_vector<float3> centroids = centroids_array;
-		kernel_calculate_centroids <<<1, 128>>> (vertices.data().get(), halfedges.data().get(), loops.data().get(), centroids.data().get(), loops.size());
+		kernel_calculate_face_centroids <<<1, 128>>> (vertices.data().get(), halfedges.data().get(), loops.data().get(), centroids.data().get(), loops.size());
 		cudaDeviceSynchronize();
 		printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
 		thrust::copy(centroids.begin(), centroids.end(), centroids_array.begin());
