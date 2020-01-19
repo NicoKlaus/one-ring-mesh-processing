@@ -1,4 +1,5 @@
 //#include <vtkm/cont/Initialize.h>
+#include <perf.hpp>
 #include <boost/program_options.hpp>
 #include <SimpleMesh.hpp>
 #include <HalfEdgeMesh.hpp>
@@ -31,7 +32,9 @@ bool test_mesh(string fn) {
 		}
 	}
 	{
-		calculate_normals_he_seq(he_mesh);
+		std::cout << "calculate normals with cpu (halfedge mesh)\n";
+		auto time = ab::perf::execution_time([&]{calculate_normals_he_seq(he_mesh);});
+		std::cout << "calculated normals in " << time.count() << "ns\n";
 		string hes_fn = fn + "-he-seq-normals.ply";
 		std::cout << "creating file: " << hes_fn << '\n';
 		if (!write_ply(he_mesh, hes_fn)) {
@@ -39,12 +42,24 @@ bool test_mesh(string fn) {
 		}
 	}
 	{
-		std::cout << "calculate normals with cuda\n";
+		std::cout << "calculate normals with cuda (gather)\n";
 		he_mesh.normals.clear();
-		calculate_normals_he_parallel_no_weight(&he_mesh);
+		auto time = ab::perf::execution_time([&]{calculate_normals_he_parallel_area_weight(&he_mesh); });
+		std::cout << "calculated normals in " << time.count() << "ns\n";
 		string hes_fn = fn + "-he-cuda-normals.ply";
 		std::cout << "creating file: " << hes_fn << '\n';
 		if (!write_ply(he_mesh, hes_fn)) {
+			std::cerr << "failed creating file: " << hes_fn << '\n';
+		}
+	}
+	{
+		std::cout << "calculate normals with cuda (scatter)\n";
+		mesh.normals.clear();
+		auto time = ab::perf::execution_time([&]{calculate_normals_sm_parallel_area_weight(&mesh); });
+		std::cout << "calculated normals in " << time.count() << "ns\n";
+		string hes_fn = fn + "-sm-cuda-normals.ply";
+		std::cout << "creating file: " << hes_fn << '\n';
+		if (!write_ply(mesh, hes_fn)) {
 			std::cerr << "failed creating file: " << hes_fn << '\n';
 		}
 	}

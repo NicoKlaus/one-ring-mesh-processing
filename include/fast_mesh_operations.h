@@ -5,7 +5,8 @@
 #include <cmath>
 
 namespace ab {
-	void calculate_normals_he_parallel_no_weight(HalfedgeMesh* mesh);
+	void calculate_normals_he_parallel_area_weight(HalfedgeMesh* mesh);
+	void calculate_normals_sm_parallel_area_weight(SimpleMesh* mesh);
 
 	//float3 extensions
 	__forceinline__ __host__ __device__ float3 cross3df(const float3 a, const float3 b) {

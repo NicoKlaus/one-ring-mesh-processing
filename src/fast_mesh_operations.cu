@@ -6,15 +6,55 @@ using namespace thrust;
 
 namespace ab {
 
-	__global__ void kernel_calculate_normals_no_weight(float3 positions,int* faces,int* face_indices,int* face_sizes, float3* normals, int face_count) {
+#if __CUDA_ARCH__ < 600
+__device__ double atomicAdd(double* address, double val)
+{
+    unsigned long long int* address_as_ull =
+                              (unsigned long long int*)address;
+    unsigned long long int old = *address_as_ull, assumed;
+
+    do {
+        assumed = old;
+        old = atomicCAS(address_as_ull, assumed,
+                        __double_as_longlong(val +
+                               __longlong_as_double(assumed)));
+
+    // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
+    } while (assumed != old);
+
+    return __longlong_as_double(old);
+}
+#endif
+
+#if __CUDA_ARCH__ < 600
+__device__ float atomicAdd(float* address, float val)
+{
+	unsigned int* address_as_ull =
+		(unsigned int*)address;
+	unsigned int old = *address_as_ull, assumed;
+
+	do {
+		assumed = old;
+		old = atomicCAS(address_as_ull, assumed,
+			__float_as_int(val +
+				__int_as_float(assumed)));
+
+		// Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
+	} while (assumed != old);
+
+	return __int_as_float(old);
+}
+#endif
+
+	__global__ void kernel_calculate_normals_scatter_area_weight(float3* positions,int* faces,int* face_indices,int* face_sizes, float3* normals, int face_count) {
 		int stride = blockDim.x;
 		int offset = threadIdx.x;
 		for (int i = offset; i < face_count; i += stride) {
 			int base_index = faces[i];
 			int face_size = face_sizes[i];
 			
-			float3 point_a = positions[face_vertices[base_index+(face_size-1)]];
-			float3 point_b = positions[face_vertices[base_index]];
+			float3 point_a = positions[face_indices[base_index+(face_size-1)]];
+			float3 point_b = positions[face_indices[base_index]];
 			float3 edge_vector_ab = point_b-point_a;
 			float3 normal;
 			normal.x = 0.f;
@@ -22,7 +62,7 @@ namespace ab {
 			normal.z = 0.f;
 			//circulate trough the rest of the face and calculate the normal
 			for (int j = 0;j< face_size;++j){
-				float3 point_c = positions[face_vertices[base_index+((j+1)%face_size)]];
+				float3 point_c = positions[face_indices[base_index+((j+1)%face_size)]];
 				float3 edge_vector_bc = point_c - point_b;
 				//adding to the normal vector
 				normal += cross3df(edge_vector_ab,edge_vector_bc);
@@ -30,19 +70,20 @@ namespace ab {
 			}
 			//add to every vertice in the face
 			for (int j = 0;j< face_size;++j){
-				float3* vn = &normals[face_vertices[base_index+j]];
-				atomicAdd_system(&vn->x, normal.x);
-				atomicAdd_system(&vn->y, normal.y);
-				atomicAdd_system(&vn->z, normal.z);
+				float3* vn = &normals[face_indices[base_index+j]];
+				atomicAdd(&vn->x, normal.x);
+				atomicAdd(&vn->y, normal.y);
+				atomicAdd(&vn->z, normal.z);
 			}
 		}
+		//synchronize all threads here
 	}
 
-	__global__ void kernel_calculate_normals_no_weight(Vertex* vertices, HalfEdge* half_edges, float3* normals, unsigned vertice_count) {
+	__global__ void kernel_calculate_normals_gather_area_weight(Vertex* vertices, HalfEdge* half_edges, float3* normals, unsigned vertice_count) {
 		int stride = blockDim.x;
 		int offset = threadIdx.x;
-		//printf("BLOCK %d launched by the host with stride %d\n", offset,stride);
-		//calculate normal without weight
+		
+		//calculate normals
 		for (int i = offset; i < vertice_count; i+=stride) {
 			auto& vert = vertices[i];
 			if (vert.he == -1) {
@@ -64,7 +105,7 @@ namespace ab {
 		}
 	}
 
-	__global__ void kernel_calculate_face_centroids(Vertex* vertices, HalfEdge* half_edges,Loop* loops, float3* centroids, unsigned loop_count) {
+	__global__ void kernel_calculate_face_centroids_gather(Vertex* vertices, HalfEdge* half_edges,Loop* loops, float3* centroids, unsigned loop_count) {
 		int stride = blockDim.x;
 		int offset = threadIdx.x;
 		for (int i = offset; i < loop_count; i += stride) {
@@ -92,12 +133,26 @@ namespace ab {
 		}
 	}
 
-	void calculate_normals_he_parallel_no_weight(HalfedgeMesh* mesh) {
+	void calculate_normals_he_parallel_area_weight(HalfedgeMesh* mesh) {
 		mesh->normals.resize(mesh->vertices.size());
 		thrust::device_vector<HalfEdge> halfedges = mesh->half_edges;
 		thrust::device_vector<Vertex> vertices = mesh->vertices;
 		thrust::device_vector<float3> normals = mesh->normals;
-		kernel_calculate_normals_no_weight<<<1,128>>>(vertices.data().get(), halfedges.data().get(), normals.data().get(), vertices.size());
+		kernel_calculate_normals_gather_area_weight<<<1,1024>>>(vertices.data().get(), halfedges.data().get(), normals.data().get(), vertices.size());
+		cudaDeviceSynchronize();
+		printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
+		thrust::copy(normals.begin(), normals.end(), mesh->normals.begin());
+	}
+
+	/// normals from a simple mesh
+	void calculate_normals_sm_parallel_area_weight(SimpleMesh* mesh) {
+		mesh->normals.resize(mesh->positions.size());
+		thrust::device_vector<float3> positions = mesh->positions;
+		thrust::device_vector<int> faces = mesh->faces;
+		thrust::device_vector<int> faces_indices = mesh->face_indices;
+		thrust::device_vector<int> faces_sizes = mesh->face_sizes;
+		thrust::device_vector<float3> normals = mesh->normals;
+		kernel_calculate_normals_scatter_area_weight<<<1, 1024>>>(positions.data().get(), faces.data().get(), faces_indices.data().get(), faces_sizes.data().get(), normals.data().get(), faces.size());
 		cudaDeviceSynchronize();
 		printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
 		thrust::copy(normals.begin(), normals.end(), mesh->normals.begin());
@@ -109,7 +164,7 @@ namespace ab {
 		thrust::device_vector<Vertex> vertices = mesh->vertices;
 		thrust::device_vector<Loop> loops = mesh->loops;
 		thrust::device_vector<float3> centroids = centroids_array;
-		kernel_calculate_face_centroids <<<1, 128>>> (vertices.data().get(), halfedges.data().get(), loops.data().get(), centroids.data().get(), loops.size());
+		kernel_calculate_face_centroids_gather<<<1, 1024>>>(vertices.data().get(), halfedges.data().get(), loops.data().get(), centroids.data().get(), loops.size());
 		cudaDeviceSynchronize();
 		printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
 		thrust::copy(centroids.begin(), centroids.end(), centroids_array.begin());
