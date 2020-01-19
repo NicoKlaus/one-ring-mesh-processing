@@ -46,6 +46,14 @@ __device__ float atomicAdd(float* address, float val)
 }
 #endif
 
+	__global__ void kernel_normalize_vectors(float3* vec,unsigned size){
+		int stride = blockDim.x;
+		int offset = threadIdx.x;
+		for (int i = offset; i < size; i += stride) {
+			vec[i] = normalized(vec[i]);
+		}
+	}
+
 	__global__ void kernel_calculate_normals_scatter_area_weight(float3* positions,int* faces,int* face_indices,int* face_sizes, float3* normals, int face_count) {
 		int stride = blockDim.x;
 		int offset = threadIdx.x;
@@ -154,6 +162,7 @@ __device__ float atomicAdd(float* address, float val)
 		thrust::device_vector<float3> normals = mesh->normals;
 		kernel_calculate_normals_scatter_area_weight<<<1, 1024>>>(positions.data().get(), faces.data().get(), faces_indices.data().get(), faces_sizes.data().get(), normals.data().get(), faces.size());
 		cudaDeviceSynchronize();
+		kernel_normalize_vectors<<<1, 1024>>>(normals.data.get());
 		printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
 		thrust::copy(normals.begin(), normals.end(), mesh->normals.begin());
 	}
