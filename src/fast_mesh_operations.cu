@@ -129,7 +129,10 @@ __device__ float atomicAdd(float* address, float val)
 				//adding to the centroid vector
 				centroid += point;
 			}
-			centroids[i] = centroid/face_size;
+			centroid.x /= face_size;
+			centroid.y /= face_size;
+			centroid.z /= face_size;
+			centroids[i] = centroid;
 		}
 	}
 
@@ -182,7 +185,7 @@ __device__ float atomicAdd(float* address, float val)
 		thrust::device_vector<float3> normals = mesh->normals;
 		kernel_calculate_normals_scatter_area_weight<<<1, 1024>>>(positions.data().get(), faces.data().get(), faces_indices.data().get(), faces_sizes.data().get(), normals.data().get(), faces.size());
 		cudaDeviceSynchronize();
-		kernel_normalize_vectors<<<1, 1024>>>(normals.data.get());
+		kernel_normalize_vectors<<<1, 1024>>>(normals.data().get(),normals.size());
 		printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
 		thrust::copy(normals.begin(), normals.end(), mesh->normals.begin());
 	}
