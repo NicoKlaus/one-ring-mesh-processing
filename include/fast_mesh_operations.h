@@ -26,6 +26,17 @@ namespace ab {
 	__forceinline__ __host__ __device__ float3 operator+(const float3& a, float3 b) {
 		return b += a;
 	}
+	
+	__forceinline__ __host__ __device__ float3& operator-=(float3& a, const float3& b) {
+		a.x -= b.x;
+		a.y -= b.y;
+		a.z -= b.z;
+		return a;
+	}
+
+	__forceinline__ __host__ __device__ float3 operator-(const float3& a, float3 b) {
+		return b -= a;
+	}
 
 	__forceinline__ __host__ __device__ float length(const float3& a) {
 		#if defined(__CUDA_ARCH__)
