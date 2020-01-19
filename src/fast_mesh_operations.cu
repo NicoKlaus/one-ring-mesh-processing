@@ -84,7 +84,6 @@ __device__ float atomicAdd(float* address, float val)
 				atomicAdd(&vn->z, normal.z);
 			}
 		}
-		//synchronize all threads here
 	}
 
 	__global__ void kernel_calculate_normals_gather_area_weight(Vertex* vertices, HalfEdge* half_edges, float3* normals, unsigned vertice_count) {
@@ -110,6 +109,27 @@ __device__ float atomicAdd(float* address, float val)
 				he = halfedge.next;
 			} while (he != vert.he);
 			normals[i] = normalized(normal);
+		}
+	}
+
+	__global__ void kernel_calculate_face_centroids_scatter(float3* positions,int* faces,int* face_indices,int* face_sizes, float3* centroids, int face_count) {
+		int stride = blockDim.x;
+		int offset = threadIdx.x;
+		for (int i = offset; i < face_count; i += stride) {
+			int base_index = faces[i];
+			int face_size = face_sizes[i];
+			
+			float3 centroid;
+			centroid.x = 0.f;
+			centroid.y = 0.f;
+			centroid.z = 0.f;
+			//circulate trough the rest of the face and calculate the normal
+			for (int j = 0;j< face_size;++j){
+				float3 point = positions[face_indices[base_index+j]];
+				//adding to the centroid vector
+				centroid += point;
+			}
+			centroids[i] = centroid/face_size;
 		}
 	}
 
@@ -165,6 +185,20 @@ __device__ float atomicAdd(float* address, float val)
 		kernel_normalize_vectors<<<1, 1024>>>(normals.data.get());
 		printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
 		thrust::copy(normals.begin(), normals.end(), mesh->normals.begin());
+	}
+
+	/// centroids from a simple mesh
+	void calculate_centroids_sm_parallel(SimpleMesh* mesh,std::vector<float3> &face_centroids) {
+		face_centroids.resize(mesh->faces.size());
+		thrust::device_vector<float3> positions = mesh->positions;
+		thrust::device_vector<int> faces = mesh->faces;
+		thrust::device_vector<int> faces_indices = mesh->face_indices;
+		thrust::device_vector<int> faces_sizes = mesh->face_sizes;
+		thrust::device_vector<float3> centroids = face_centroids;
+		kernel_calculate_normals_scatter_area_weight<<<1, 1024>>>(positions.data().get(), faces.data().get(), faces_indices.data().get(), faces_sizes.data().get(), centroids.data().get(), faces.size());
+		cudaDeviceSynchronize();
+		printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
+		thrust::copy(centroids.begin(), centroids.end(), face_centroids.begin());
 	}
 
 	void calculate_centroids_he_parallel(HalfedgeMesh* mesh,std::vector<float3>& centroids_array) {
