@@ -204,26 +204,47 @@ namespace ab{
 	void calculate_normals_he_seq(HalfedgeMesh &mesh) {
 		//initialize normal array
 		mesh.normals.resize(mesh.vertices.size());
-		//calculate normal without weight
-		for (int i = 0; i < mesh.vertices.size();++i) {
-			auto& vert = mesh.vertices[i];
+
+		Vertex* vertices = mesh.vertices.data();
+		int vertice_count = mesh.vertices.size();
+		float3* normals = mesh.normals.data();
+		HalfEdge* half_edges = mesh.half_edges.data();
+		Loop* loops = mesh.loops.data();
+		//calculate normals
+		for (int i = 0; i < vertice_count; ++i) {
+			auto& vert = vertices[i];
 			if (vert.he == -1) {
 				continue;
 			}
-			int he = vert.he;
-			float3 normal{ 0.f,0.f,0.f };
-			do {
-				HalfEdge& halfedge = mesh.half_edges[he];
-				float3 a = mesh.vertices[halfedge.origin].position;
-				float3 b = mesh.vertices[mesh.half_edges[halfedge.next].origin].position;
-				float3 v = cross3df(a, b);
-				normal.x += v.x;
-				normal.y += v.y;
-				normal.z += v.z;
-				he = halfedge.next;
-			} while (he != vert.he);
-			normal = normalized(normal);
-			mesh.normals[i] = normal;
+
+			float3 normal;
+			normal.x = 0.f;
+			normal.y = 0.f;
+			normal.z = 0.f;
+
+			int base_he = vert.he;
+			do {//for every neighbor
+				float3 pnormal;
+				pnormal.x = 0.f;
+				pnormal.y = 0.f;
+				pnormal.z = 0.f;
+				int he = base_he;
+				//skip boundary loops
+				if (loops[half_edges[base_he].loop].is_border) {
+					base_he = half_edges[half_edges[base_he].inv].next;
+					continue;
+				}
+				do {//calculate polygon normal
+					HalfEdge& halfedge = half_edges[he];
+					float3 a = vertices[halfedge.origin].position;
+					float3 b = vertices[half_edges[halfedge.next].origin].position;
+					pnormal = pnormal + cross3df(a, b);
+					he = halfedge.next;
+				} while (he != base_he);
+				normal += pnormal;
+				base_he = half_edges[half_edges[base_he].inv].next;
+			} while (base_he != vert.he);
+			normals[i] = normalized(normal);
 		}
 	}
 

@@ -63,6 +63,17 @@ bool test_mesh(string fn) {
 			std::cerr << "failed creating file: " << hes_fn << '\n';
 		}
 	}
+	{
+		std::cout << "calculate one ring centroids with cuda (gather)\n";
+		vector<float3> centroids;
+		auto time = ab::perf::execution_time([&]{calculate_centroids_he_parallel(&he_mesh,centroids); });
+		std::cout << "calculated centroids in " << time.count() << "ns\n";
+		//string hes_fn = fn + "-sm-cuda-normals.ply";
+		//std::cout << "creating file: " << hes_fn << '\n';
+		//if (!write_ply(mesh, hes_fn)) {
+		//	std::cerr << "failed creating file: " << hes_fn << '\n';
+		//}
+	}
 	return true;
 }
 
