@@ -15,7 +15,7 @@ __device__ int thread_stride(){
 }
 
 #if __CUDA_ARCH__ < 600
-__device__ double atomicAdd(int* address, int val)
+__device__ int atomicAdd(int* address, int val)
 {
 	int old = *address, assumed;
 
@@ -203,7 +203,7 @@ __device__ float atomicAdd(float* address, float val)
 			centroids[i] = centroid;
 		}
 	}
-	//TODO test this, add implementation
+	//TODO debug this
 	__global__ void kernel_calculate_ring_centroids_scatter(float3* positions, int* faces, int* face_indices, int* face_sizes, float3* centroids, int* duped_neighbor_counts, int face_count) {
 		int stride = blockDim.x;
 		int offset = threadIdx.x;
