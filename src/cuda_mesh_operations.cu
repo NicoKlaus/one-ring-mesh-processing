@@ -215,14 +215,14 @@ __device__ float atomicAdd(float* address, float val)
 			//circulate trough the face and add it to the centroids
 			for (int j = 0; j < face_size; ++j) {
 				float3 next = positions[face_indices[base_index + ((j+1) % face_size)]];
-				float3 prev = positions[face_indices[base_index + ((j-1) % face_size)]];
+				//float3 prev = positions[face_indices[base_index + ((j-1) % face_size)]];
 				
 				float3* centroid = centroids+face_indices[base_index+j];
 				int* neighbor_count = duped_neighbor_counts+face_indices[base_index+j];
-				atomicAdd(&centroid->x, next.x+prev.x);
-				atomicAdd(&centroid->y, next.y+prev.y);
-				atomicAdd(&centroid->z, next.z+prev.z);
-				atomicAdd(neighbor_count, 2);
+				atomicAdd(&centroid->x, next.x);
+				atomicAdd(&centroid->y, next.y);
+				atomicAdd(&centroid->z, next.z);
+				atomicAdd(neighbor_count, 1);
 			}
 		}
 	}
