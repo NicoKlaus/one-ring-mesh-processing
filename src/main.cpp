@@ -1,5 +1,6 @@
 //#include <vtkm/cont/Initialize.h>
 #include <perf.hpp>
+#include <util.hpp>
 #include <boost/program_options.hpp>
 #include <SimpleMesh.hpp>
 #include <HalfEdgeMesh.hpp>
@@ -11,7 +12,8 @@ using namespace boost::program_options;
 using namespace std;
 using namespace ab;
 
-bool test_mesh(string fn) {
+
+bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	SimpleMesh mesh;
 	read_ply(mesh, fn);
 
@@ -24,7 +26,8 @@ bool test_mesh(string fn) {
 	std::cout << "creating he mesh from simple mesh\n";
 	create_he_mesh_from(he_mesh, mesh);
 
-	{
+
+	if (mesh_conversion_output){
 		string hes_fn = fn + "-he-to-simple.ply";
 		std::cout << "creating file: " << hes_fn << '\n';
 		if (!write_ply(he_mesh, hes_fn)) {
@@ -68,11 +71,18 @@ bool test_mesh(string fn) {
 		vector<float3> centroids;
 		auto time = ab::perf::execution_time([&]{calculate_centroids_he_parallel(&he_mesh,centroids); });
 		std::cout << "calculated centroids in " << time.count() << "ns\n";
-		//string hes_fn = fn + "-sm-cuda-normals.ply";
-		//std::cout << "creating file: " << hes_fn << '\n';
-		//if (!write_ply(mesh, hes_fn)) {
-		//	std::cerr << "failed creating file: " << hes_fn << '\n';
-		//}
+		string he_centroid_fn = fn + "-he-cuda-centroids.ply";
+		std::cout << "creating file: " << he_centroid_fn << '\n';
+		write_pointcloud(he_centroid_fn, centroids.data(), centroids.size());
+	}
+	{
+		std::cout << "calculate one ring centroids with cuda (scatter)\n";
+		vector<float3> centroids;
+		auto time = ab::perf::execution_time([&] {calculate_centroids_sm_parallel(&mesh, centroids); });
+		std::cout << "calculated centroids in " << time.count() << "ns\n";
+		string sm_centroid_fn = fn + "-sm-cuda-centroids.ply";
+		std::cout << "creating file: " << sm_centroid_fn << '\n';
+		write_pointcloud(sm_centroid_fn, centroids.data(), centroids.size());
 	}
 	return true;
 }
