@@ -80,9 +80,10 @@ __device__ float atomicAdd(float* address, float val)
 		int stride = blockDim.x;
 		int offset = threadIdx.x;
 		for (int i = offset; i < vec_size; i += stride) {
-			vec[i].x /= div[i];
-			vec[i].y /= div[i];
-			vec[i].z /= div[i];
+			float fdiv = div[i];
+			vec[i].x /= fdiv;
+			vec[i].y /= fdiv;
+			vec[i].z /= fdiv;
 		}
 	}
 
@@ -220,7 +221,7 @@ __device__ float atomicAdd(float* address, float val)
 				int* neighbor_count = duped_neighbor_counts+face_indices[base_index+j];
 				atomicAdd(&centroid->x, next.x+prev.x);
 				atomicAdd(&centroid->y, next.y+prev.y);
-				atomicAdd(&centroid->z, next.y+prev.z);
+				atomicAdd(&centroid->z, next.z+prev.z);
 				atomicAdd(neighbor_count, 2);
 			}
 		}
