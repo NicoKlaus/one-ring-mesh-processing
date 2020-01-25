@@ -6,6 +6,14 @@ using namespace thrust;
 
 namespace ab {
 
+__device__ int offset(){
+	blockIdx.x * blockDim.x + threadIdx.x;
+}
+
+__device__ int stride(){
+	blockIdx.x * blockDim.x;
+}
+
 #if __CUDA_ARCH__ < 600
 __device__ double atomicAdd(double* address, double val)
 {
@@ -51,6 +59,14 @@ __device__ float atomicAdd(float* address, float val)
 		int offset = threadIdx.x;
 		for (int i = offset; i < size; i += stride) {
 			vec[i] = normalized(vec[i]);
+		}
+	}
+	
+	__global__ void kernel_divide(float3* vec,float* div,unsigned vec_size){
+		int stride = blockDim.x;
+		int offset = threadIdx.x;
+		for (int i = offset; i < vec_size; i += stride) {
+			vec[i] /= div[i];
 		}
 	}
 
@@ -160,39 +176,28 @@ __device__ float atomicAdd(float* address, float val)
 			centroids[i] = centroid;
 		}
 	}
-	//TODO continue here
-	/*
-	__global__ void kernel_calculate_ring_centroids_scatter(float3* positions, int* faces, int* face_indices, int* face_sizes, float3* centroids, int vertex_count) {
+	//TODO test this, add implementation
+	__global__ void kernel_calculate_ring_centroids_scatter(float3* positions, int* faces, int* face_indices, int* face_sizes, float3* centroids, unsigned* duped_neighbor_counts, int vertex_count) {
 		int stride = blockDim.x;
 		int offset = threadIdx.x;
 		for (int i = offset; i < vertex_count; i += stride) {
 			int base_index = faces[i];
 			int face_size = face_sizes[i];
 
-			float3 point_a = positions[face_indices[base_index + (face_size - 1)]];
-			float3 point_b = positions[face_indices[base_index]];
-			float3 edge_vector_ab = point_b - point_a;
-			float3 normal;
-			normal.x = 0.f;
-			normal.y = 0.f;
-			normal.z = 0.f;
-			//circulate trough the rest of the face and calculate the normal
+			//circulate trough the face and add it to the centroids
 			for (int j = 0; j < face_size; ++j) {
-				float3 point_c = positions[face_indices[base_index + ((j + 1) % face_size)]];
-				float3 edge_vector_bc = point_c - point_b;
-				//adding to the normal vector
-				normal += cross3df(edge_vector_ab, edge_vector_bc);
-				edge_vector_ab = edge_vector_bc;
-			}
-			//add to every vertice in the face
-			for (int j = 0; j < face_size; ++j) {
-				float3* vn = &normals[face_indices[base_index + j]];
-				atomicAdd(&vn->x, normal.x);
-				atomicAdd(&vn->y, normal.y);
-				atomicAdd(&vn->z, normal.z);
+				float3 next = positions[face_indices[base_index + ((j+1) % face_size)]];
+				float3 prev = positions[face_indices[base_index + ((j-1) % face_size)]];
+				
+				float3* centroid = centroids+face_indices[base_index+j];
+				unsigned* neighbor_count = duped_neighbor_counts+face_indices[base_index+j];
+				atomicAdd(centroid->x, next.x+prev.x);
+				atomicAdd(centroid->y, next.y+prev.y);
+				atomicAdd(centroid->z, next.y+prev.z);
+				atomicAdd(neighbor_count, 2);
 			}
 		}
-	}*/
+	}
 
 	__global__ void kernel_calculate_face_centroids_scatter(float3* positions,int* faces,int* face_indices,int* face_sizes, float3* centroids, int face_count) {
 		int stride = blockDim.x;
