@@ -4,7 +4,7 @@
 #include <boost/program_options.hpp>
 #include <SimpleMesh.hpp>
 #include <HalfEdgeMesh.hpp>
-#include <fast_mesh_operations.h>
+#include <cuda_mesh_operations.hpp>
 #include <iostream>
 #include <string>
 

@@ -1,4 +1,4 @@
-#include <fast_mesh_operations.h>
+#include <cuda_mesh_operations.hpp>
 #include <thrust/device_vector.h>
 #include <device_launch_parameters.h>
 

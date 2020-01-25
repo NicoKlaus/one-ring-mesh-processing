@@ -1,5 +1,5 @@
 #include <HalfEdgeMesh.hpp>
-#include <fast_mesh_operations.h>
+#include <cuda_mesh_operations.hpp>
 #include <algorithm>
 #include <thrust/device_vector.h>
 
