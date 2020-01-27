@@ -5,6 +5,7 @@
 #include <SimpleMesh.hpp>
 #include <HalfEdgeMesh.hpp>
 #include <cuda_mesh_operations.hpp>
+#include <cpu_mesh_operations.hpp>
 #include <iostream>
 #include <string>
 
@@ -36,9 +37,9 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	}
 	{
 		std::cout << "calculate normals with cpu (halfedge mesh)\n";
-		auto time = ab::perf::execution_time([&]{calculate_normals_he_seq(he_mesh);});
+		auto time = ab::perf::execution_time([&]{normals_by_area_weight_cpu(&he_mesh,8);});
 		std::cout << "calculated normals in " << time.count() << "ns\n";
-		string hes_fn = fn + "-he-seq-normals.ply";
+		string hes_fn = fn + "-he-cpu-normals.ply";
 		std::cout << "creating file: " << hes_fn << '\n';
 		if (!write_ply(he_mesh, hes_fn)) {
 			std::cerr << "failed creating file: " << hes_fn << '\n';
@@ -81,6 +82,24 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 		auto time = ab::perf::execution_time([&] {calculate_centroids_sm_parallel(&mesh, centroids); });
 		std::cout << "calculated centroids in " << time.count() << "ns\n";
 		string sm_centroid_fn = fn + "-sm-cuda-centroids.ply";
+		std::cout << "creating file: " << sm_centroid_fn << '\n';
+		write_pointcloud(sm_centroid_fn, centroids.data(), centroids.size());
+	}
+	{
+		std::cout << "calculate face centroids with cuda (gather)\n";
+		vector<float3> centroids;
+		auto time = ab::perf::execution_time([&] {calculate_face_centroids_he_parallel(&he_mesh, centroids); });
+		std::cout << "calculated centroids in " << time.count() << "ns\n";
+		string he_centroid_fn = fn + "-he-cuda-face-centroids.ply";
+		std::cout << "creating file: " << he_centroid_fn << '\n';
+		write_pointcloud(he_centroid_fn, centroids.data(), centroids.size());
+	}
+	{
+		std::cout << "calculate face centroids with cuda (scatter)\n";
+		vector<float3> centroids;
+		auto time = ab::perf::execution_time([&] {calculate_face_centroids_sm_parallel(&mesh, centroids); });
+		std::cout << "calculated centroids in " << time.count() << "ns\n";
+		string sm_centroid_fn = fn + "-sm-cuda-face-centroids.ply";
 		std::cout << "creating file: " << sm_centroid_fn << '\n';
 		write_pointcloud(sm_centroid_fn, centroids.data(), centroids.size());
 	}
