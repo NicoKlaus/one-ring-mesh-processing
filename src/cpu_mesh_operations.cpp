@@ -1,7 +1,24 @@
 #include <cpu_mesh_operations.hpp>
-#include <atomic>
+#include <intrin.h>
 
 namespace ab {
+
+	float atomic_add(float* address, float val)
+	{
+		volatile long* address_as_ull =
+			(long*)address;
+		long old = *address_as_ull, assumed;
+
+		do {
+			assumed = old;
+			old = _InterlockedCompareExchange(address_as_ull,
+				assumed, reinterpret_cast<long&>(reinterpret_cast<float&>(assumed))+val);
+
+			// Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
+		} while (assumed != old);
+
+		return old;
+	}
 
 	void cpu_kernel_normals_by_are_weight_gather(Vertex* vertices, HalfEdge* half_edges,
 			Loop* loops, float3* normals, unsigned vertice_count, int stride, int offset) {
@@ -44,7 +61,7 @@ namespace ab {
 		}
 	}
 
-	/*
+	
 	void cpu_kernel_normals_by_area_weight_scatter(float3* positions, int* faces, int* face_indices,
 			int* face_sizes, float3* normals, int face_count, int stride, int offset) {
 		for (int i = offset; i < face_count; i += stride) {
@@ -69,19 +86,32 @@ namespace ab {
 			//add to every vertice in the face
 			for (int j = 0; j < face_size; ++j) {
 				float3* vn = &normals[face_indices[base_index + j]];
-				std::atomic_fetch_add(&vn->x, normal.x);
-				atomicAdd(&vn->y, normal.y);
-				atomicAdd(&vn->z, normal.z);
+				atomic_add(&vn->x, normal.x);
+				atomic_add(&vn->y, normal.y);
+				atomic_add(&vn->z, normal.z);
 			}
 		}
-	}*/
+	}
 
-	void normals_by_area_weight_cpu(HalfedgeMesh* mesh, int threads) {
+	void normals_by_area_weight_he_cpu(HalfedgeMesh* mesh, int threads) {
 		mesh->normals.resize(mesh->vertices.size());
 		std::vector<std::thread> thread_list;
 		for (int i = 0; i < threads; ++i) {
 			thread_list.emplace_back(std::thread(cpu_kernel_normals_by_are_weight_gather, mesh->vertices.data(), mesh->half_edges.data(),
 				mesh->loops.data(), mesh->normals.data(), mesh->vertices.size(), threads, i));
+		}
+
+		for (int i = 0; i < threads; ++i) {
+			thread_list[i].join();
+		}
+	}
+
+	void normals_by_area_weight_sm_cpu(SimpleMesh* mesh, int threads) {
+		mesh->normals.resize(mesh->positions.size());
+		std::vector<std::thread> thread_list;
+		for (int i = 0; i < threads; ++i) {
+			thread_list.emplace_back(std::thread(cpu_kernel_normals_by_area_weight_scatter, mesh->positions.data(), mesh->faces.data(),
+				mesh->face_indices.data(), mesh->face_sizes.data(), mesh->normals.data(),mesh->faces.size(), threads, i));
 		}
 
 		for (int i = 0; i < threads; ++i) {

@@ -11,7 +11,7 @@ __device__ int thread_offset(){
 }
 
 __device__ int thread_stride(){
-	return blockIdx.x * blockDim.x;
+	return blockDim.x * gridDim.x;
 }
 
 #if __CUDA_ARCH__ < 600
@@ -69,16 +69,16 @@ __device__ float atomicAdd(float* address, float val)
 #endif
 
 	__global__ void kernel_normalize_vectors(float3* vec,unsigned size){
-		int stride = blockDim.x;
-		int offset = threadIdx.x;
+		int stride = thread_stride();
+		int offset = thread_offset();
 		for (int i = offset; i < size; i += stride) {
 			vec[i] = normalized(vec[i]);
 		}
 	}
 	
 	__global__ void kernel_divide(float3* vec,float* div,unsigned vec_size){
-		int stride = blockDim.x;
-		int offset = threadIdx.x;
+		int stride = thread_stride();
+		int offset = thread_offset();
 		for (int i = offset; i < vec_size; i += stride) {
 			float fdiv = div[i];
 			vec[i].x /= fdiv;
@@ -88,8 +88,8 @@ __device__ float atomicAdd(float* address, float val)
 	}
 
 	__global__ void kernel_divide(float3* vec, int* div, unsigned vec_size) {
-		int stride = blockDim.x;
-		int offset = threadIdx.x;
+		int stride = thread_stride();
+		int offset = thread_offset();
 		for (int i = offset; i < vec_size; i += stride) {
 			float fdiv = static_cast<float>(div[i]);
 			vec[i].x /= fdiv;
@@ -99,8 +99,8 @@ __device__ float atomicAdd(float* address, float val)
 	}
 
 	__global__ void kernel_calculate_normals_scatter_area_weight(float3* positions,int* faces,int* face_indices,int* face_sizes, float3* normals, int face_count) {
-		int stride = blockDim.x;
-		int offset = threadIdx.x;
+		int stride = thread_stride();
+		int offset = thread_offset();
 		for (int i = offset; i < face_count; i += stride) {
 			int base_index = faces[i];
 			int face_size = face_sizes[i];
@@ -131,8 +131,8 @@ __device__ float atomicAdd(float* address, float val)
 	}
 
 	__global__ void kernel_calculate_normals_gather_area_weight(Vertex* vertices, HalfEdge* half_edges,Loop* loops, float3* normals, unsigned vertice_count) {
-		int stride = blockDim.x;
-		int offset = threadIdx.x;
+		int stride = thread_stride();
+		int offset = thread_offset();
 		
 		//calculate normals
 		for (int i = offset; i < vertice_count; i+=stride) {
@@ -173,8 +173,8 @@ __device__ float atomicAdd(float* address, float val)
 	}
 
 	__global__ void kernel_calculate_ring_centroids_gather(Vertex* vertices, HalfEdge* half_edges, float3* centroids, unsigned vertice_count) {
-		int stride = blockDim.x;
-		int offset = threadIdx.x;
+		int stride = thread_stride();
+		int offset = thread_offset();
 
 		//calculate centroids
 		for (int i = offset; i < vertice_count; i += stride) {
@@ -206,8 +206,8 @@ __device__ float atomicAdd(float* address, float val)
 	}
 	
 	__global__ void kernel_calculate_ring_centroids_scatter(float3* positions, int* faces, int* face_indices, int* face_sizes, float3* centroids, int* duped_neighbor_counts, int face_count) {
-		int stride = blockDim.x;
-		int offset = threadIdx.x;
+		int stride = thread_stride();
+		int offset = thread_offset();
 		for (int i = offset; i < face_count; i += stride) {
 			int base_index = faces[i];
 			int face_size = face_sizes[i];
@@ -228,8 +228,8 @@ __device__ float atomicAdd(float* address, float val)
 	}
 
 	__global__ void kernel_calculate_face_centroids_scatter(float3* positions, int* faces, int* face_indices, int* face_sizes, float3* centroids, int face_count) {
-		int stride = blockDim.x;
-		int offset = threadIdx.x;
+		int stride = thread_stride();
+		int offset = thread_offset();
 		for (int i = offset; i < face_count; i += stride) {
 			int base_index = faces[i];
 			int face_size = face_sizes[i];
@@ -252,8 +252,8 @@ __device__ float atomicAdd(float* address, float val)
 	}
 
 	__global__ void kernel_calculate_face_centroids_gather(Vertex* vertices, HalfEdge* half_edges, Loop* loops, float3* centroids, unsigned loop_count) {
-		int stride = blockDim.x;
-		int offset = threadIdx.x;
+		int stride = thread_stride();
+		int offset = thread_offset();
 		for (int i = offset; i < loop_count; i += stride) {
 			auto& loop = loops[i];
 			if (loop.is_border) {

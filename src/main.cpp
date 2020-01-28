@@ -13,6 +13,12 @@ using namespace boost::program_options;
 using namespace std;
 using namespace ab;
 
+const bool bin_mode = 
+#ifdef NDEBUG
+true;
+#else
+false;
+#endif
 
 bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	SimpleMesh mesh;
@@ -20,7 +26,7 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 
 	string sfn = fn + "-pos_only.ply";
 	std::cout << "creating file: " << sfn << '\n';
-	write_ply(mesh, sfn);
+	write_mesh(mesh, sfn,bin_mode);
 
 
 	HalfedgeMesh he_mesh;
@@ -31,17 +37,27 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	if (mesh_conversion_output){
 		string hes_fn = fn + "-he-to-simple.ply";
 		std::cout << "creating file: " << hes_fn << '\n';
-		if (!write_ply(he_mesh, hes_fn)) {
+		if (!write_mesh(he_mesh, hes_fn, bin_mode)) {
 			std::cerr << "failed creating file: " << hes_fn << '\n';
 		}
 	}
 	{
 		std::cout << "calculate normals with cpu (halfedge mesh)\n";
-		auto time = ab::perf::execution_time([&]{normals_by_area_weight_cpu(&he_mesh,8);});
+		auto time = ab::perf::execution_time([&]{normals_by_area_weight_he_cpu(&he_mesh,8);});
 		std::cout << "calculated normals in " << time.count() << "ns\n";
 		string hes_fn = fn + "-he-cpu-normals.ply";
 		std::cout << "creating file: " << hes_fn << '\n';
-		if (!write_ply(he_mesh, hes_fn)) {
+		if (!write_mesh(he_mesh, hes_fn, bin_mode)) {
+			std::cerr << "failed creating file: " << hes_fn << '\n';
+		}
+	}
+	{
+		std::cout << "calculate normals with cpu (simple mesh)\n";
+		auto time = ab::perf::execution_time([&] {normals_by_area_weight_sm_cpu(&mesh, 8); });
+		std::cout << "calculated normals in " << time.count() << "ns\n";
+		string hes_fn = fn + "-sm-cpu-normals.ply";
+		std::cout << "creating file: " << hes_fn << '\n';
+		if (!write_mesh(he_mesh, hes_fn, bin_mode)) {
 			std::cerr << "failed creating file: " << hes_fn << '\n';
 		}
 	}
@@ -52,7 +68,7 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 		std::cout << "calculated normals in " << time.count() << "ns\n";
 		string hes_fn = fn + "-he-cuda-normals.ply";
 		std::cout << "creating file: " << hes_fn << '\n';
-		if (!write_ply(he_mesh, hes_fn)) {
+		if (!write_mesh(he_mesh, hes_fn, bin_mode)) {
 			std::cerr << "failed creating file: " << hes_fn << '\n';
 		}
 	}
@@ -63,7 +79,7 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 		std::cout << "calculated normals in " << time.count() << "ns\n";
 		string hes_fn = fn + "-sm-cuda-normals.ply";
 		std::cout << "creating file: " << hes_fn << '\n';
-		if (!write_ply(mesh, hes_fn)) {
+		if (!write_mesh(mesh, hes_fn, bin_mode)) {
 			std::cerr << "failed creating file: " << hes_fn << '\n';
 		}
 	}
@@ -107,7 +123,6 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 }
 
 int main(int argc, char* argv[]){
-	//vtkm::cont:: Initialize(argc , argv);
 	
 	try
 	{

@@ -5,5 +5,6 @@
 
 namespace ab {
 	
-	void normals_by_area_weight_cpu(HalfedgeMesh* mesh, int threads);
+	void normals_by_area_weight_he_cpu(HalfedgeMesh* mesh, int threads);
+	void normals_by_area_weight_sm_cpu(SimpleMesh* mesh, int threads);
 }
