@@ -131,7 +131,9 @@ int main(int argc, char* argv[]){
 			("help,h", "Help screen")
 			("in", value<string>(), "Ply File for reading")
 			("out", value<string>(), "Ply File for writing")
-			("test", value<string>(), "Ply File for run tests on");
+			("test", value<string>(), "runs tests,= Ply File for testing")
+			("algorithm", value<string>(), "normals-gather-cuda|normals-scatter-cuda|centroids-gather-cuda|centroids-scatter-cuda")
+			("runs", value<string>(), "=N ,run calculation N times for time mesuring");
 
 		variables_map vm;
 		store(parse_command_line(argc, argv, desc), vm);
@@ -145,6 +147,37 @@ int main(int argc, char* argv[]){
 		}
 		else if (vm.count("in")) {
 			std::cout << "reading file: " << vm["in"].as<string>() << '\n';
+			if (vm.count("algorithm")) {
+				string algo_name = vm["algorithm"].as<string>();
+				size_t off;
+				if (algo_name == "normals-gather-cpu") {
+
+				}
+				else if (algo_name == "normals-scatter-cpu") {
+
+				}
+				else if (algo_name == "normals-gather-cuda") {
+
+				}
+				else if (algo_name == "normals-scatter-cuda") {
+
+				}
+				else if (algo_name == "centroids-gather-cpu") {
+
+				}
+				else if (algo_name == "centroids-scatter-cpu") {
+
+				}
+				else if (algo_name == "centroids-gather-cuda") {
+
+				}
+				else if (algo_name == "centroids-scatter-cuda") {
+
+				}
+				else {
+					cerr << "unknown algorithm! :" << algo_name << "\n";
+				}
+			}
 		}
 		else if (vm.count("test")) {
 			test_mesh(vm["test"].as<string>());

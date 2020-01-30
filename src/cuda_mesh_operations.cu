@@ -1,6 +1,7 @@
 #include <cuda_mesh_operations.hpp>
 #include <thrust/device_vector.h>
 #include <device_launch_parameters.h>
+#include <chrono>
 
 using namespace thrust;
 
@@ -279,17 +280,29 @@ __device__ float atomicAdd(float* address, float val)
 		}
 	}
 
-	void calculate_normals_he_parallel_area_weight(HalfedgeMesh* mesh, size_t threads,size_t blocks) {
-		mesh->normals.resize(mesh->vertices.size());
+	void calculate_normals_he_parallel_area_weight(HalfedgeMesh* mesh, std::vector<size_t> timings, size_t threads,size_t blocks) {
+		mesh->normals.resize(mesh->vertices.size()); //prepare vector for normals
+		auto start = std::chrono::steady_clock::now(); //upload time
 		thrust::device_vector<HalfEdge> halfedges = mesh->half_edges;
 		thrust::device_vector<Vertex> vertices = mesh->vertices;
 		thrust::device_vector<Loop> loops = mesh->loops;
 		thrust::device_vector<float3> normals = mesh->normals;
+		
+		auto stop = std::chrono::steady_clock::now();
+		timings.emplace_back(std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count());
+		
+		start = std::chrono::steady_clock::now(); //kernel launch + execution to synchronisation
 		kernel_calculate_normals_gather_area_weight<<<blocks,threads>>>(vertices.data().get(), 
 				halfedges.data().get(),loops.data().get(), normals.data().get(), vertices.size());
 		cudaDeviceSynchronize();
+		stop = std::chrono::steady_clock::now();
+		timings.emplace_back(std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count());
 		printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
+		
+		start = std::chrono::steady_clock::now();//download time
 		thrust::copy(normals.begin(), normals.end(), mesh->normals.begin());
+		stop = std::chrono::steady_clock::now();
+		timings.emplace_back(std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count());
 	}
 
 	/// normals from a simple mesh

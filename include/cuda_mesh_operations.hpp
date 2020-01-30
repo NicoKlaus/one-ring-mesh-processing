@@ -6,7 +6,7 @@
 #include <vector>
 
 namespace ab {
-	void calculate_normals_he_parallel_area_weight(HalfedgeMesh* mesh, size_t threads = 256,size_t blocks=1);
+	void calculate_normals_he_parallel_area_weight(HalfedgeMesh* mesh,std::vector<size_t> timing=std::vector<size_t>(), size_t threads = 256,size_t blocks=1);
 	void calculate_normals_sm_parallel_area_weight(SimpleMesh* mesh, size_t threads = 256, size_t blocks = 1);
 	void calculate_centroids_he_parallel(HalfedgeMesh* mesh, std::vector<float3>& centroids_array, size_t threads = 256,size_t blocks = 1);
 	void calculate_centroids_sm_parallel(SimpleMesh* mesh, std::vector<float3>& centroids, size_t threads = 256, size_t blocks = 1);
