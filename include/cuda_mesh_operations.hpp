@@ -4,12 +4,13 @@
 #include <SimpleMesh.hpp>
 #include <cmath>
 #include <vector>
+#include <timing_struct.hpp>
 
 namespace ab {
-	void calculate_normals_he_parallel_area_weight(HalfedgeMesh* mesh,std::vector<size_t> timing=std::vector<size_t>(), size_t threads = 256,size_t blocks=1);
-	void calculate_normals_sm_parallel_area_weight(SimpleMesh* mesh,std::vector<size_t> timing=std::vector<size_t>(), size_t threads = 256, size_t blocks = 1);
-	void calculate_centroids_he_parallel(HalfedgeMesh* mesh, std::vector<float3>& centroids_array,std::vector<size_t> timing=std::vector<size_t>(), size_t threads = 256,size_t blocks = 1);
-	void calculate_centroids_sm_parallel(SimpleMesh* mesh, std::vector<float3>& centroids, std::vector<size_t> timing=std::vector<size_t>(),size_t threads = 256, size_t blocks = 1);
+	void normals_by_area_weight_he_cuda(HalfedgeMesh* mesh, size_t threads = 256,size_t blocks=1, timing_struct& timing=timing_struct());
+	void normals_by_area_weight_sm_cuda(SimpleMesh* mesh, size_t threads = 256, size_t blocks = 1, timing_struct& timing = timing_struct());
+	void centroids_he_cuda(HalfedgeMesh* mesh, std::vector<float3>& centroids_array, size_t threads = 256,size_t blocks = 1, timing_struct& timing = timing_struct());
+	void centroids_sm_cuda(SimpleMesh* mesh, std::vector<float3>& centroids, size_t threads = 256, size_t blocks = 1, timing_struct& timing = timing_struct());
 	void calculate_face_centroids_sm_parallel(SimpleMesh* mesh, std::vector<float3>& centroids_array, size_t threads = 256, size_t blocks = 1);
 	void calculate_face_centroids_he_parallel(HalfedgeMesh* mesh, std::vector<float3>& centroids_array, size_t threads = 256, size_t blocks = 1);
 

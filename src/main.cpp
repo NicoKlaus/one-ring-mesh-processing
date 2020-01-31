@@ -64,7 +64,7 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	{
 		std::cout << "calculate normals with cuda (gather)\n";
 		he_mesh.normals.clear();
-		auto time = ab::perf::execution_time([&]{calculate_normals_he_parallel_area_weight(&he_mesh); });
+		auto time = ab::perf::execution_time([&]{normals_by_area_weight_he_cuda(&he_mesh); });
 		std::cout << "calculated normals in " << time.count() << "ns\n";
 		string hes_fn = fn + "-he-cuda-normals.ply";
 		std::cout << "creating file: " << hes_fn << '\n';
@@ -75,7 +75,7 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	{
 		std::cout << "calculate normals with cuda (scatter)\n";
 		mesh.normals.clear();
-		auto time = ab::perf::execution_time([&]{calculate_normals_sm_parallel_area_weight(&mesh); });
+		auto time = ab::perf::execution_time([&]{normals_by_area_weight_sm_cuda(&mesh); });
 		std::cout << "calculated normals in " << time.count() << "ns\n";
 		string hes_fn = fn + "-sm-cuda-normals.ply";
 		std::cout << "creating file: " << hes_fn << '\n';
@@ -86,7 +86,7 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	{
 		std::cout << "calculate one ring centroids with cuda (gather)\n";
 		vector<float3> centroids;
-		auto time = ab::perf::execution_time([&]{calculate_centroids_he_parallel(&he_mesh,centroids); });
+		auto time = ab::perf::execution_time([&]{centroids_he_cuda(&he_mesh,centroids); });
 		std::cout << "calculated centroids in " << time.count() << "ns\n";
 		string he_centroid_fn = fn + "-he-cuda-centroids.ply";
 		std::cout << "creating file: " << he_centroid_fn << '\n';
@@ -95,7 +95,7 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	{
 		std::cout << "calculate one ring centroids with cuda (scatter)\n";
 		vector<float3> centroids;
-		auto time = ab::perf::execution_time([&] {calculate_centroids_sm_parallel(&mesh, centroids); });
+		auto time = ab::perf::execution_time([&] {centroids_sm_cuda(&mesh, centroids); });
 		std::cout << "calculated centroids in " << time.count() << "ns\n";
 		string sm_centroid_fn = fn + "-sm-cuda-centroids.ply";
 		std::cout << "creating file: " << sm_centroid_fn << '\n';

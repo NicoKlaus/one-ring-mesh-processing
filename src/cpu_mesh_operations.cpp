@@ -93,8 +93,9 @@ namespace ab {
 		}
 	}
 
-	void normals_by_area_weight_he_cpu(HalfedgeMesh* mesh, int threads) {
+	void normals_by_area_weight_he_cpu(HalfedgeMesh* mesh, int threads, timing_struct& timing) {
 		mesh->normals.resize(mesh->vertices.size());
+		auto start = std::chrono::steady_clock::now();
 		std::vector<std::thread> thread_list;
 		for (int i = 0; i < threads; ++i) {
 			thread_list.emplace_back(std::thread(cpu_kernel_normals_by_are_weight_gather, mesh->vertices.data(), mesh->half_edges.data(),
@@ -104,10 +105,13 @@ namespace ab {
 		for (int i = 0; i < threads; ++i) {
 			thread_list[i].join();
 		}
+		auto stop = std::chrono::steady_clock::now();
+		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 	}
 
-	void normals_by_area_weight_sm_cpu(SimpleMesh* mesh, int threads) {
+	void normals_by_area_weight_sm_cpu(SimpleMesh* mesh, int threads, timing_struct& timing) {
 		mesh->normals.resize(mesh->positions.size());
+		auto start = std::chrono::steady_clock::now();
 		std::vector<std::thread> thread_list;
 		for (int i = 0; i < threads; ++i) {
 			thread_list.emplace_back(std::thread(cpu_kernel_normals_by_area_weight_scatter, mesh->positions.data(), mesh->faces.data(),
@@ -117,6 +121,8 @@ namespace ab {
 		for (int i = 0; i < threads; ++i) {
 			thread_list[i].join();
 		}
+		auto stop = std::chrono::steady_clock::now();
+		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 	}
 
 }

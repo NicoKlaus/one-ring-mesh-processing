@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <timing_struct.hpp>
 
 namespace ab {
 
@@ -19,8 +20,13 @@ namespace ab {
 	public:
 		virtual ~processing_functor() = 0;
 		virtual void operator()() = 0;
+
+		size_t threads, blocks;
 	protected:
-		std::vector<size_t> timings;
+		ProcessingMode proc_mode;
+		ProcessingDevice proc_dev;
+		void* mesh_pointer;
+		timing_struct timings;
 	};
 
 }
