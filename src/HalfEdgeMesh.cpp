@@ -28,13 +28,6 @@ namespace ab{
 		return (a.vertex_a < b.vertex_a) | ((a.vertex_a == b.vertex_a) & (a.vertex_b < b.vertex_b));
 	}
 
-	bool read_ply(HalfedgeMesh& mesh, const std::string& file)
-	{
-		SimpleMesh s_mesh;
-		if (!read_ply(s_mesh, file)) return false;
-		return create_he_mesh_from(mesh, s_mesh);
-	}
-
 	bool write_ply(const HalfedgeMesh& mesh, const std::string& file)
 	{
 		SimpleMesh s_mesh;

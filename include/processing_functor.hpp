@@ -22,11 +22,11 @@ namespace ab {
 		virtual void operator()() = 0;
 
 		size_t threads, blocks;
+		timing_struct timings;
 	protected:
 		ProcessingMode proc_mode;
 		ProcessingDevice proc_dev;
 		void* mesh_pointer;
-		timing_struct timings;
 	};
 
 }

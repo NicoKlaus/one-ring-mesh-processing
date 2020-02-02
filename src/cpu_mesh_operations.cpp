@@ -17,7 +17,24 @@ namespace ab {
 			// Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
 		} while (assumed != old);
 
-		return old;
+		return reinterpret_cast<float&>(old);
+	}
+
+	float atomic_add(int* address, int val)
+	{
+		volatile long* address_as_ull =
+			(long*)address;
+		long old = *address_as_ull, assumed;
+
+		do {
+			assumed = old;
+			old = _InterlockedCompareExchange(address_as_ull,
+				assumed, reinterpret_cast<long&>(reinterpret_cast<float&>(assumed)) + val);
+
+			// Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
+		} while (assumed != old);
+
+		return  reinterpret_cast<int&>(old);
 	}
 
 	void cpu_kernel_normals_by_are_weight_gather(Vertex* vertices, HalfEdge* half_edges,
@@ -62,6 +79,36 @@ namespace ab {
 	}
 
 	
+	void cpu_kernel_calculate_ring_centroids_gather(Vertex* vertices, HalfEdge* half_edges, float3* centroids, unsigned vertice_count,int stride, int offset) {
+		//calculate centroids
+		for (int i = offset; i < vertice_count; i += stride) {
+			auto& vert = vertices[i];
+			if (vert.he == -1) {
+				continue;
+			}
+
+			float3 centroid;
+			centroid.x = 0.f;
+			centroid.y = 0.f;
+			centroid.z = 0.f;
+
+			int he = vert.he;
+			unsigned neighbors = 0;
+			do {//for every neighbor
+				HalfEdge& halfedge = half_edges[he];
+				HalfEdge& inv_halfedge = half_edges[halfedge.inv];
+				float3 p = vertices[inv_halfedge.origin].position;
+				centroid += p;
+				++neighbors;
+				he = inv_halfedge.next;
+			} while (he != vert.he);
+			centroid.x /= neighbors;
+			centroid.y /= neighbors;
+			centroid.z /= neighbors;
+			centroids[i] = centroid;
+		}
+	}
+
 	void cpu_kernel_normals_by_area_weight_scatter(float3* positions, int* faces, int* face_indices,
 			int* face_sizes, float3* normals, int face_count, int stride, int offset) {
 		for (int i = offset; i < face_count; i += stride) {
@@ -89,6 +136,27 @@ namespace ab {
 				atomic_add(&vn->x, normal.x);
 				atomic_add(&vn->y, normal.y);
 				atomic_add(&vn->z, normal.z);
+			}
+		}
+	}
+
+	__global__ void cpu_kernel_calculate_ring_centroids_scatter(float3* positions, int* faces, int* face_indices,
+				int* face_sizes, float3* centroids, int* duped_neighbor_counts, int face_count,int stride,int offset) {
+		for (int i = offset; i < face_count; i += stride) {
+			int base_index = faces[i];
+			int face_size = face_sizes[i];
+
+			//circulate trough the face and add it to the centroids
+			for (int j = 0; j < face_size; ++j) {
+				float3 next = positions[face_indices[base_index + ((j + 1) % face_size)]];
+				//float3 prev = positions[face_indices[base_index + ((j-1) % face_size)]];
+
+				float3* centroid = centroids + face_indices[base_index + j];
+				int* neighbor_count = duped_neighbor_counts + face_indices[base_index + j];
+				atomic_add(&centroid->x, next.x);
+				atomic_add(&centroid->y, next.y);
+				atomic_add(&centroid->z, next.z);
+				atomic_add(neighbor_count, 1);
 			}
 		}
 	}
@@ -125,4 +193,51 @@ namespace ab {
 		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 	}
 
+	void centroids_he_cpu(HalfedgeMesh* mesh, std::vector<float3>& centroids_array, size_t threads, timing_struct& timing) {
+		centroids_array.resize(mesh->vertices.size());
+
+		auto start = std::chrono::steady_clock::now();
+		std::vector<std::thread> thread_list;
+		for (int i = 0; i < threads; ++i) {
+			thread_list.emplace_back(std::thread(cpu_kernel_calculate_ring_centroids_gather,mesh->vertices.data(), mesh->half_edges.data(), centroids_array.data(),
+				mesh->vertices.size(), threads, i));
+		}
+
+		for (int i = 0; i < threads; ++i) {
+			thread_list[i].join();
+		}
+		
+		auto stop = std::chrono::steady_clock::now();
+		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+	}
+
+	void centroids_sm_cpu(SimpleMesh* mesh, std::vector<float3>& centroids_array, size_t threads, timing_struct& timing) {
+		centroids_array.resize(mesh->positions.size());
+
+		auto start = std::chrono::steady_clock::now();
+		std::vector<int> neighbor_count(mesh->positions.size(), 0);
+		auto stop = std::chrono::steady_clock::now();
+		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+
+		start = std::chrono::steady_clock::now();
+		std::vector<std::thread> thread_list;
+		for (int i = 0; i < threads; ++i) {
+			thread_list.emplace_back(std::thread(cpu_kernel_calculate_ring_centroids_scatter, mesh->positions.data(), mesh->faces.data(),
+				mesh->face_indices.data(), mesh->face_sizes.data(), centroids_array.data(), neighbor_count.data(), mesh->faces.size(),
+				threads, i));;
+		}
+
+		for (int i = 0; i < threads; ++i) {
+			thread_list[i].join();
+		}
+
+		for (int i = 0; i < centroids_array.size(); ++i) {
+			centroids_array[i].x /= neighbor_count[i];
+			centroids_array[i].y /= neighbor_count[i];
+			centroids_array[i].z /= neighbor_count[i];
+		}
+
+		stop = std::chrono::steady_clock::now();
+		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+	}
 }

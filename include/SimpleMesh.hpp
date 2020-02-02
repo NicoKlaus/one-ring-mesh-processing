@@ -22,7 +22,7 @@ struct SimpleMesh
 };
 
 
-bool read_ply(SimpleMesh &mesh,const std::string &file);
+
 bool write_ply(const SimpleMesh &mesh,const std::string &file);
 
 }

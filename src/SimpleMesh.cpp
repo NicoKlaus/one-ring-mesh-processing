@@ -8,38 +8,6 @@ using namespace happly;
 
 namespace ab {
 
-	bool read_ply(SimpleMesh &mesh, const string &file) {
-		PLYData plyIn(file);
-		plyIn.validate();
-		std::vector<float> xPos = plyIn.getElement("vertex").getProperty<float>("x");
-		std::vector<float> yPos = plyIn.getElement("vertex").getProperty<float>("y");
-		std::vector<float> zPos = plyIn.getElement("vertex").getProperty<float>("z");
-
-		std::vector<float3> &positions = mesh.positions;
-		positions.resize(xPos.size());
-		for (size_t i = 0; i < positions.size(); ++i) {
-			positions[i].x = xPos[i];
-			positions[i].y = yPos[i];
-			positions[i].z = zPos[i];
-		}
-		std::vector<std::vector<int>> faces_vector = plyIn.getElement("face").getListProperty<int>("vertex_indices");
-
-		//clear vectors
-		mesh.faces.resize(0);
-		mesh.face_indices.resize(0);
-		mesh.face_sizes.resize(0);
-		//encode face information inside 3 arrays
-		for (auto face : faces_vector) {
-			//store begin and size of the face
-			mesh.face_sizes.emplace_back(face.size());
-			mesh.faces.emplace_back(mesh.face_indices.size());
-			//append face indices
-			for (auto vert : face) {
-				mesh.face_indices.emplace_back(vert);
-			}
-		}
-		return true;
-	}
 
 	bool write_ply(const SimpleMesh &mesh, const std::string &file) {
 		PLYData plyOut;

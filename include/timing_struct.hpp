@@ -7,6 +7,8 @@ namespace ab{
 		size_t kernel_execution_time_a;
 		size_t kernel_execution_time_b;
 		size_t data_download_time;
+
+		inline timing_struct() : data_upload_time(0), kernel_execution_time_a(0), kernel_execution_time_b(0), data_download_time(0) {};
 	};
 
 }

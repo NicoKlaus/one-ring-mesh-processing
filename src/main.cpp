@@ -4,6 +4,8 @@
 #include <boost/program_options.hpp>
 #include <SimpleMesh.hpp>
 #include <HalfEdgeMesh.hpp>
+#include <mesh_centroid_generator.hpp>
+#include <mesh_normal_generator.hpp>
 #include <cuda_mesh_operations.hpp>
 #include <cpu_mesh_operations.hpp>
 #include <iostream>
@@ -22,7 +24,7 @@ false;
 
 bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	SimpleMesh mesh;
-	read_ply(mesh, fn);
+	read_mesh(mesh, fn);
 
 	string sfn = fn + "-pos_only.ply";
 	std::cout << "creating file: " << sfn << '\n';
@@ -124,6 +126,13 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 
 int main(int argc, char* argv[]){
 	
+	std::shared_ptr<processing_functor> funct;
+	SimpleMesh smesh;
+	HalfedgeMesh hemesh;
+	int threads = 8, blocks = 1;
+	size_t runs = 1;
+	string algo_name;
+	string out;
 	try
 	{
 		options_description desc{ "Options" };
@@ -133,7 +142,9 @@ int main(int argc, char* argv[]){
 			("out", value<string>(), "Ply File for writing")
 			("test", value<string>(), "runs tests,= Ply File for testing")
 			("algorithm", value<string>(), "normals-gather-cuda|normals-scatter-cuda|centroids-gather-cuda|centroids-scatter-cuda")
-			("runs", value<string>(), "=N ,run calculation N times for time mesuring");
+			("threads", value<int>(), "threads per block")
+			("blocks", value<int>(), "cuda blocks to start, has no effect for cpu only algorithms")
+			("runs", value<int>(), "=N ,run calculation N times for time mesuring");
 
 		variables_map vm;
 		store(parse_command_line(argc, argv, desc), vm);
@@ -147,32 +158,55 @@ int main(int argc, char* argv[]){
 		}
 		else if (vm.count("in")) {
 			std::cout << "reading file: " << vm["in"].as<string>() << '\n';
+			string fn = vm["in"].as<string>();
+
+			if (vm.count("threads")) {
+				threads = vm["threads"].as<int>();
+			}
+			if (vm.count("blocks")) {
+				blocks = vm["blocks"].as<int>();
+			}
+			if (vm.count("runs")) {
+				runs = vm["runs"].as<int>();
+			}
+			if (vm.count("out")) {
+				out = vm["out"].as<string>();
+			}
+
 			if (vm.count("algorithm")) {
-				string algo_name = vm["algorithm"].as<string>();
+				algo_name = vm["algorithm"].as<string>();
 				size_t off;
 				if (algo_name == "normals-gather-cpu") {
-
+					read_mesh(hemesh, fn);
+					funct = make_shared<mesh_normal_generator>(&hemesh, PD_CPU, threads, blocks);
 				}
 				else if (algo_name == "normals-scatter-cpu") {
-
+					read_mesh(smesh, fn);
+					funct = make_shared<mesh_normal_generator>(&smesh, PD_CPU, threads, blocks);
 				}
 				else if (algo_name == "normals-gather-cuda") {
-
+					read_mesh(hemesh, fn);
+					funct = make_shared<mesh_normal_generator>(&hemesh, PD_CUDA, threads, blocks);
 				}
 				else if (algo_name == "normals-scatter-cuda") {
-
+					read_mesh(smesh, fn);
+					funct = make_shared<mesh_normal_generator>(&smesh, PD_CUDA, threads, blocks);
 				}
 				else if (algo_name == "centroids-gather-cpu") {
-
+					read_mesh(hemesh, fn);
+					funct = make_shared<mesh_centroid_generator>(&hemesh, PD_CPU, threads, blocks);
 				}
 				else if (algo_name == "centroids-scatter-cpu") {
-
+					read_mesh(smesh, fn);
+					funct = make_shared<mesh_centroid_generator>(&smesh, PD_CPU, threads, blocks);
 				}
 				else if (algo_name == "centroids-gather-cuda") {
-
+					read_mesh(hemesh, fn);
+					funct = make_shared<mesh_centroid_generator>(&hemesh, PD_CUDA, threads, blocks);
 				}
 				else if (algo_name == "centroids-scatter-cuda") {
-
+					read_mesh(smesh, fn);
+					funct = make_shared<mesh_centroid_generator>(&smesh, PD_CUDA, threads, blocks);
 				}
 				else {
 					cerr << "unknown algorithm! :" << algo_name << "\n";
@@ -191,5 +225,41 @@ int main(int argc, char* argv[]){
 		std::cerr << ex.what() << '\n';
 	}
 
-	return 0;
+	if (funct) {
+		//run selected algorithm
+		std::vector<timing_struct> timings;
+		for (int i = 0; i < runs; ++i) {
+			(*funct)();
+			timings.push_back(funct->timings);
+		}
+
+		stringstream ss;
+		for (timing_struct timing : timings) {
+			ss << "["<< algo_name << " threads=" << threads << " blocks=" << blocks << "]\n"
+				<< "data_upload_time=" << timing.data_upload_time << " ns\n"
+				<< "kernel_execution_time_a=" << timing.kernel_execution_time_a << " ns\n"
+				<< "kernel_execution_time_b=" << timing.kernel_execution_time_b << " ns\n"
+				<< "data_download_time=" << timing.data_download_time << " ns\n\n";
+		}
+		
+		if (out.size()) {
+			mesh_normal_generator* normal_gen = dynamic_cast<mesh_normal_generator*>(funct.get());
+			if (normal_gen) {
+				if (hemesh.half_edges.size()) write_mesh(hemesh, out);
+				if (smesh.positions.size()) write_mesh(smesh, out);
+			}
+			mesh_centroid_generator* centroid_gen = dynamic_cast<mesh_centroid_generator*>(funct.get());
+			if (centroid_gen) {
+				write_pointcloud(out, centroid_gen->centroids.data(), centroid_gen->centroids.size());
+			}
+			fstream fs;
+			fs.open((out + "_timings.txt"));
+			fs << ss.str();
+			fs.close();
+		} else {
+			cout << ss.str();
+		}
+
+		return 0;
+	}
 }

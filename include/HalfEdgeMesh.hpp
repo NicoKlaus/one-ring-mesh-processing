@@ -32,7 +32,6 @@ namespace ab {
 		std::vector<Loop> loops;
 	};
 
-	bool read_ply(HalfedgeMesh& mesh, const std::string& file);
 	bool write_ply(const HalfedgeMesh& mesh, const std::string& file);
 
 	bool create_he_mesh_from(HalfedgeMesh& he_mesh,const SimpleMesh& s_mesh);
