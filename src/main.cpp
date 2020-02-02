@@ -253,7 +253,7 @@ int main(int argc, char* argv[]){
 				write_pointcloud(out, centroid_gen->centroids.data(), centroid_gen->centroids.size());
 			}
 			fstream fs;
-			fs.open((out + "_timings.txt"));
+			fs.open((out + ".timings.txt"),ios_base::out);
 			fs << ss.str();
 			fs.close();
 		} else {
