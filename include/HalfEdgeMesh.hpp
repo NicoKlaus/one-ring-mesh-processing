@@ -27,7 +27,6 @@ namespace ab {
 	struct HalfedgeMesh {
 		std::vector<Vertex> vertices;
 		std::vector<float3> normals;
-		std::vector<float3> centroids;
 		std::vector<HalfEdge> half_edges;
 		std::vector<Loop> loops;
 	};

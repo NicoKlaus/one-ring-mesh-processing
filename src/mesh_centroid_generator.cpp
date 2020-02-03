@@ -38,6 +38,7 @@ namespace ab {
 			else if (proc_dev == PD_CUDA) {
 				centroids_sm_cuda(mesh,centroids, threads, blocks, timings);
 			}
+			break;
 		}
 		case PM_GATHER: {
 			HalfedgeMesh* mesh = reinterpret_cast<HalfedgeMesh*>(mesh_pointer);
@@ -47,6 +48,7 @@ namespace ab {
 			else if (proc_dev == PD_CUDA) {
 				centroids_he_cuda(mesh, centroids, threads, blocks, timings);
 			}
+			break;
 		}
 		}
 	}

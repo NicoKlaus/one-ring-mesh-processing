@@ -10,8 +10,8 @@ SET RUNS=10
 
 for %%f in ("%1\*.ply") do (
 	for %%a in (%CPU_ALGORITHMS%) do (
-		%OPROC%  --algorithm="%%a" --in="%%f" --out="%DIR_OUT%\%%~nf-%%a-(1,4).ply" --time-log="%DIR_OUT%\%%~nf-%%a-(1,4).log" --threads=4 --runs=%RUNS%
-		%OPROC%  --algorithm="%%a" --in="%%f" --out="%DIR_OUT%\%%~nf-%%a-(1,8).ply" --time-log="%DIR_OUT%\%%~nf-%%a-(1,8).log" --threads=8 --runs=%RUNS%
+		%OPROC%  --algorithm="%%a" --in="%%f" --time-log="%DIR_OUT%\%%~nf-%%a-(1,4).log" --threads=4 --runs=%RUNS%
+		%OPROC%  --algorithm="%%a" --in="%%f" --time-log="%DIR_OUT%\%%~nf-%%a-(1,8).log" --threads=8 --runs=%RUNS%
 	)
 	for %%a in (%CUDA_ALGORITHMS%) do (
 		for %%b in (%CUDA_BLOCK_CONFS%) do (

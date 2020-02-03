@@ -38,6 +38,9 @@ namespace ab{
 	bool create_he_mesh_from(HalfedgeMesh& he_mesh,const SimpleMesh& s_mesh) {
 		he_mesh.vertices.resize(0);
 		he_mesh.half_edges.resize(0);
+		he_mesh.normals.resize(0);
+		he_mesh.loops.resize(0);
+
 		//copy vertex positions
 		Vertex v;
 		for (size_t i = 0; i < s_mesh.positions.size(); ++i) {

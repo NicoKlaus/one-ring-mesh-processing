@@ -70,6 +70,10 @@ __device__ float atomicAdd(float* address, float val)
 }
 #endif
 
+	__global__ void kernel_train() {
+		
+	}
+
 	__global__ void kernel_normalize_vectors(float3* vec,unsigned size){
 		int stride = thread_stride();
 		int offset = thread_offset();
@@ -298,7 +302,7 @@ __device__ float atomicAdd(float* address, float val)
 		cudaDeviceSynchronize();
 		stop = std::chrono::steady_clock::now();
 		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
-		printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
+		//printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
 
 		start = std::chrono::steady_clock::now();//download time
 		thrust::copy(normals.begin(), normals.end(), mesh->normals.begin());
@@ -331,7 +335,7 @@ __device__ float atomicAdd(float* address, float val)
 		timing.kernel_execution_time_b = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 		
 		start = std::chrono::steady_clock::now();
-		printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
+		//printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
 		thrust::copy(normals.begin(), normals.end(), mesh->normals.begin());
 		stop = std::chrono::steady_clock::now();
 		timing.data_download_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
@@ -354,7 +358,7 @@ __device__ float atomicAdd(float* address, float val)
 		stop = std::chrono::steady_clock::now();
 		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 
-		printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
+		//printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
 		
 		start = std::chrono::steady_clock::now();
 		thrust::copy(centroids.begin(), centroids.end(), centroids_array.begin());
@@ -381,11 +385,11 @@ __device__ float atomicAdd(float* address, float val)
 		cudaDeviceSynchronize();
 		stop = std::chrono::steady_clock::now();
 		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
-		printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
+		//printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
 		start = std::chrono::steady_clock::now();
 		kernel_divide<<<blocks, threads>>>(centroids.data().get(), neighbor_count.data().get(), centroids.size());
 		cudaDeviceSynchronize();
-		printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
+		//printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
 		stop = std::chrono::steady_clock::now();
 		timing.kernel_execution_time_b = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 

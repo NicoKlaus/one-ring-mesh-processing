@@ -133,6 +133,7 @@ int main(int argc, char* argv[]){
 	size_t runs = 1;
 	string algo_name;
 	string out;
+	string time_log;
 	try
 	{
 		options_description desc{ "Options" };
@@ -144,7 +145,8 @@ int main(int argc, char* argv[]){
 			("algorithm", value<string>(), "normals-gather-cuda|normals-scatter-cuda|centroids-gather-cuda|centroids-scatter-cuda")
 			("threads", value<int>(), "threads per block")
 			("blocks", value<int>(), "cuda blocks to start, has no effect for cpu only algorithms")
-			("runs", value<int>(), "=N ,run calculation N times for time mesuring");
+			("runs", value<int>(), "=N ,run calculation N times for time mesuring")
+			("time-log", value<string>(), "saves timings to file");
 
 		variables_map vm;
 		store(parse_command_line(argc, argv, desc), vm);
@@ -171,6 +173,9 @@ int main(int argc, char* argv[]){
 			}
 			if (vm.count("out")) {
 				out = vm["out"].as<string>();
+			}
+			if (vm.count("time-log")) {
+				time_log = vm["time-log"].as<string>();
 			}
 
 			if (vm.count("algorithm")) {
@@ -227,19 +232,22 @@ int main(int argc, char* argv[]){
 
 	if (funct) {
 		//run selected algorithm
+		cout << "selected algorithm: " << algo_name << '\n';
 		std::vector<timing_struct> timings;
 		for (int i = 0; i < runs; ++i) {
+			cout << "start run " << i << "/" << runs << '...';
 			(*funct)();
+			cout << "finished in "<< funct->timings.total_execution_time() << " ns\n";
 			timings.push_back(funct->timings);
 		}
 
-		stringstream ss;
+		stringstream log_data;
 		for (timing_struct timing : timings) {
-			ss << "["<< algo_name << " threads=" << threads << " blocks=" << blocks << "]\n"
-				<< "data_upload_time=" << timing.data_upload_time << " ns\n"
-				<< "kernel_execution_time_a=" << timing.kernel_execution_time_a << " ns\n"
-				<< "kernel_execution_time_b=" << timing.kernel_execution_time_b << " ns\n"
-				<< "data_download_time=" << timing.data_download_time << " ns\n\n";
+			log_data << "["<< algo_name << " threads=" << threads << " blocks=" << blocks << "]\n"
+				<< "data_upload_time=" << timing.data_upload_time << "\n"
+				<< "kernel_execution_time_a=" << timing.kernel_execution_time_a << "\n"
+				<< "kernel_execution_time_b=" << timing.kernel_execution_time_b << "\n"
+				<< "data_download_time=" << timing.data_download_time << "\n\n";
 		}
 		
 		if (out.size()) {
@@ -252,12 +260,15 @@ int main(int argc, char* argv[]){
 			if (centroid_gen) {
 				write_pointcloud(out, centroid_gen->centroids.data(), centroid_gen->centroids.size());
 			}
+		} 
+		if (time_log.size()) {
 			fstream fs;
-			fs.open((out + ".timings.txt"),ios_base::out);
-			fs << ss.str();
+			fs.open(time_log, ios_base::out);
+			fs << log_data.str();
 			fs.close();
+			cout << "wrote results to " << time_log << '\n';
 		} else {
-			cout << ss.str();
+			cout << "Results:\n" << log_data.str();
 		}
 
 		return 0;
