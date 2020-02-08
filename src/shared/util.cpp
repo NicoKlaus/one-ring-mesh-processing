@@ -131,4 +131,8 @@ namespace ab {
 		if (!create_simple_mesh_from(s_mesh, mesh)) return false;
 		return write_mesh(s_mesh, file, binary_mode);
 	}
+
+	void get_optimal_configuration(int& blocks,int& threads) {
+
+	}
 }
