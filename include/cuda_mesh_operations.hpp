@@ -11,8 +11,6 @@ namespace ab {
 	void normals_by_area_weight_sm_cuda(SimpleMesh* mesh, size_t threads = 256, size_t blocks = 1, timing_struct& timing = timing_struct());
 	void centroids_he_cuda(HalfedgeMesh* mesh, std::vector<float3>& centroids_array, size_t threads = 256,size_t blocks = 1, timing_struct& timing = timing_struct());
 	void centroids_sm_cuda(SimpleMesh* mesh, std::vector<float3>& centroids, size_t threads = 256, size_t blocks = 1, timing_struct& timing = timing_struct());
-	void calculate_face_centroids_sm_parallel(SimpleMesh* mesh, std::vector<float3>& centroids_array, size_t threads = 256, size_t blocks = 1);
-	void calculate_face_centroids_he_parallel(HalfedgeMesh* mesh, std::vector<float3>& centroids_array, size_t threads = 256, size_t blocks = 1);
 
 	//float3 extensions
 	__forceinline__ __host__ __device__ float3 cross3df(const float3 a, const float3 b) {
