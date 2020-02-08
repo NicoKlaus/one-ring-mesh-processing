@@ -111,7 +111,7 @@ int main(int argc, char* argv[]){
 	std::shared_ptr<processing_functor> funct;
 	SimpleMesh smesh;
 	HalfedgeMesh hemesh;
-	int threads = 8, blocks = 1;
+	int threads = 0, blocks = 0;
 	size_t runs = 1;
 	string algo_name;
 	string out;
@@ -125,9 +125,9 @@ int main(int argc, char* argv[]){
 			("out", value<string>(), "Ply File for writing")
 			("test", value<string>(), "runs tests,= Ply File for testing")
 			("algorithm", value<string>(), "normals-gather-cuda|normals-scatter-cuda|centroids-gather-cuda|centroids-scatter-cuda")
-			("threads", value<int>(), "threads per block")
-			("blocks", value<int>(), "cuda blocks to start, has no effect for cpu only algorithms")
-			("runs", value<int>(), "=N ,run calculation N times for time mesuring")
+			("threads", value<int>(), "threads per block, blocks and threads are determined automatically if ommited")
+			("blocks", value<int>(), "blocks in the grid, has no effect for cpu only algorithms, determined automatically if --threads ommited")
+			("runs", value<int>(), "=N ,run calculation N times for extensive time mesuring")
 			("time-log", value<string>(), "saves timings to file");
 
 		variables_map vm;
@@ -225,7 +225,7 @@ int main(int argc, char* argv[]){
 
 		stringstream log_data;
 		for (timing_struct timing : timings) {
-			log_data << "["<< algo_name << " threads=" << threads << " blocks=" << blocks << "]\n"
+			log_data << "["<< algo_name << " block_size=" << timing.block_size << " grid_size=" << timing.grid_size << "]\n"
 				<< "data_upload_time=" << timing.data_upload_time << "\n"
 				<< "kernel_execution_time_a=" << timing.kernel_execution_time_a << "\n"
 				<< "kernel_execution_time_b=" << timing.kernel_execution_time_b << "\n"

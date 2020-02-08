@@ -163,6 +163,9 @@ namespace ab {
 
 	void normals_by_area_weight_he_cpu(HalfedgeMesh* mesh, int threads, timing_struct& timing) {
 		mesh->normals.resize(mesh->vertices.size());
+		timing.block_size = threads;
+		timing.grid_size = 1;
+
 		auto start = std::chrono::steady_clock::now();
 		std::vector<std::thread> thread_list;
 		for (int i = 0; i < threads; ++i) {
@@ -179,6 +182,9 @@ namespace ab {
 
 	void normals_by_area_weight_sm_cpu(SimpleMesh* mesh, int threads, timing_struct& timing) {
 		mesh->normals.resize(mesh->positions.size());
+		timing.block_size = threads;
+		timing.grid_size = 1;
+
 		auto start = std::chrono::steady_clock::now();
 		std::vector<std::thread> thread_list;
 		for (int i = 0; i < threads; ++i) {
@@ -195,6 +201,8 @@ namespace ab {
 
 	void centroids_he_cpu(HalfedgeMesh* mesh, std::vector<float3>& centroids_array, size_t threads, timing_struct& timing) {
 		centroids_array.resize(mesh->vertices.size());
+		timing.block_size = threads;
+		timing.grid_size = 1;
 
 		auto start = std::chrono::steady_clock::now();
 		std::vector<std::thread> thread_list;
@@ -213,6 +221,8 @@ namespace ab {
 
 	void centroids_sm_cpu(SimpleMesh* mesh, std::vector<float3>& centroids_array, size_t threads, timing_struct& timing) {
 		centroids_array.resize(mesh->positions.size());
+		timing.block_size = threads;
+		timing.grid_size = 1;
 
 		auto start = std::chrono::steady_clock::now();
 		std::vector<int> neighbor_count(mesh->positions.size(), 0);
