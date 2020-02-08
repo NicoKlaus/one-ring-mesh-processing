@@ -235,7 +235,7 @@ int main(int argc, char* argv[]){
 		cout << "selected algorithm: " << algo_name << '\n';
 		std::vector<timing_struct> timings;
 		for (int i = 0; i < runs; ++i) {
-			cout << "start run " << i << "/" << runs << '...';
+			cout << "start run " << i << "/" << runs << " ...";
 			(*funct)();
 			cout << "finished in "<< funct->timings.total_execution_time() << " ns\n";
 			timings.push_back(funct->timings);
