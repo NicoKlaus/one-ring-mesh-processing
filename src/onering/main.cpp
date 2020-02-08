@@ -103,24 +103,6 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 		std::cout << "creating file: " << sm_centroid_fn << '\n';
 		write_pointcloud(sm_centroid_fn, centroids.data(), centroids.size());
 	}
-	{
-		std::cout << "calculate face centroids with cuda (gather)\n";
-		vector<float3> centroids;
-		auto time = ab::perf::execution_time([&] {calculate_face_centroids_he_parallel(&he_mesh, centroids); });
-		std::cout << "calculated centroids in " << time.count() << "ns\n";
-		string he_centroid_fn = fn + "-he-cuda-face-centroids.ply";
-		std::cout << "creating file: " << he_centroid_fn << '\n';
-		write_pointcloud(he_centroid_fn, centroids.data(), centroids.size());
-	}
-	{
-		std::cout << "calculate face centroids with cuda (scatter)\n";
-		vector<float3> centroids;
-		auto time = ab::perf::execution_time([&] {calculate_face_centroids_sm_parallel(&mesh, centroids); });
-		std::cout << "calculated centroids in " << time.count() << "ns\n";
-		string sm_centroid_fn = fn + "-sm-cuda-face-centroids.ply";
-		std::cout << "creating file: " << sm_centroid_fn << '\n';
-		write_pointcloud(sm_centroid_fn, centroids.data(), centroids.size());
-	}
 	return true;
 }
 

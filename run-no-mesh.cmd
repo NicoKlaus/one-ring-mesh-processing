@@ -6,7 +6,7 @@ SET CPU_ALGORITHMS=normals-gather-cpu normals-scatter-cpu centroids-gather-cpu c
 SET CUDA_ALGORITHMS=normals-gather-cuda normals-scatter-cuda centroids-gather-cuda centroids-scatter-cuda
 SET CUDA_BLOCK_CONFS=2 3 4 8
 SET DIR_OUT=%2
-SET RUNS=10
+SET RUNS=20
 
 for %%f in ("%1\*.ply") do (
 	for %%a in (%CPU_ALGORITHMS%) do (
