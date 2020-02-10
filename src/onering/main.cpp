@@ -257,7 +257,7 @@ int main(int argc, char* argv[]){
 		cout << "selected algorithm: " << algo_name << '\n';
 		std::vector<timing_struct> timings;
 		for (int i = 0; i < runs; ++i) {
-			cout << "start run " << i << "/" << runs << " ...";
+			cout << "start run " << i+1 << "/" << runs << " ...";
 			(*funct)();
 			cout << "finished in "<< funct->timings.total_execution_time() << " ns\n";
 			timings.push_back(funct->timings);
@@ -266,7 +266,7 @@ int main(int argc, char* argv[]){
 		stringstream log_data;
 		for (timing_struct timing : timings) {
 			log_data << "["<< algo_name << " block_size=" << timing.block_size << " grid_size=" 
-				<< timing.grid_size << "mesh_size="<< mesh_size <<"]\n"
+				<< timing.grid_size << " mesh_size="<< mesh_size <<"]\n"
 				<< "in_memory_mesh_size=" << mem_mesh_size << "\n"
 				<< "data_upload_time=" << timing.data_upload_time << "\n"
 				<< "kernel_execution_time_a=" << timing.kernel_execution_time_a << "\n"
