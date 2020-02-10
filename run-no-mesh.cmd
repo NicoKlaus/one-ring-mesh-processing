@@ -15,7 +15,7 @@ for %%f in ("%1\*.ply") do (
 	)
 	for %%a in (%CUDA_ALGORITHMS%) do (
 		for %%b in (%CUDA_BLOCK_CONFS%) do (
-		%OPROC%  --algorithm="%%a" --in="%%f" --out="%DIR_OUT%\%%~nf-%%a-(%%b,256).ply" --time-log="%DIR_OUT%\%%~nf-%%a-(%%b,256).log" --threads=256 --blocks=%%b --runs=%RUNS%
+		%OPROC%  --algorithm="%%a" --in="%%f"  --time-log="%DIR_OUT%\%%~nf-%%a-(%%b,256).log" --threads=256 --blocks=%%b --runs=%RUNS%
 		)
 	)
 )
