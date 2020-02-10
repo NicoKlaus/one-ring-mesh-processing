@@ -131,26 +131,5 @@ namespace ab {
 		if (!create_simple_mesh_from(s_mesh, mesh)) return false;
 		return write_mesh(s_mesh, file, binary_mode);
 	}
-	
-	size_t in_memory_mesh_size(const SimpleMesh& mesh) {
-		size_t size = 0;
-		size += sizeof(int) * mesh.faces.size() +
-			sizeof(int) * mesh.face_indices.size() +
-			sizeof(int) * mesh.face_sizes.size() +
-			sizeof(float3) * mesh.normals.size() +
-			sizeof(float3) * mesh.positions.size();
-		return size;
-	}
-	
-	size_t in_memory_mesh_size(const HalfedgeMesh& mesh) {
-		size_t size = 0;
-		/*
-		size += sizeof(HalfEdge) * mesh.half_edges.size() +
-			sizeof(Vertex) * mesh.vertices.size() +
-			sizeof(Loop) * mesh.loops.size() +
-			sizeof(float) * mesh.normals.size();
-		*/
-		return size;
-	}
 
 }

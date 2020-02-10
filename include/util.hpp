@@ -11,6 +11,4 @@ namespace ab {
 	bool write_mesh(const HalfedgeMesh& mesh, const std::string& file, bool binary_mode = false);
 	bool read_mesh(SimpleMesh& mesh, const std::string& file);
 	bool read_mesh(HalfedgeMesh& mesh, const std::string& file);
-	size_t in_memory_mesh_size(const SimpleMesh& mesh);
-	size_t in_memory_mesh_size(const HalfedgeMesh& mesh);
 }
