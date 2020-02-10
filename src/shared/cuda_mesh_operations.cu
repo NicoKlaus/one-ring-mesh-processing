@@ -16,6 +16,15 @@ __device__ int thread_stride(){
 	return blockDim.x * gridDim.x;
 }
 
+template <typename T>
+__host__ void optimal_configuration(int& blocks, int& threads, const T& kernel) {
+	int grid_size = 0;
+	int block_size = 0;
+	cudaOccupancyMaxPotentialBlockSize(&grid_size, &block_size, kernel, 0, 0);
+	blocks = grid_size;
+	threads = block_size;
+}
+
 #if __CUDA_ARCH__ < 600
 __device__ int atomicAdd(int* address, int val)
 {
