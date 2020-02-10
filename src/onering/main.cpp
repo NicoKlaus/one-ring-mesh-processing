@@ -10,6 +10,7 @@
 #include <cpu_mesh_operations.hpp>
 #include <iostream>
 #include <string>
+#include <boost/filesystem.hpp>
 
 using namespace boost::program_options;
 using namespace std;
@@ -63,9 +64,10 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 			std::cerr << "failed creating file: " << hes_fn << '\n';
 		}
 	}
+	
 	{
 		std::cout << "calculate normals with cuda (gather)\n";
-		he_mesh.normals.clear();
+		he_mesh.clear_normals();
 		auto time = ab::perf::execution_time([&]{normals_by_area_weight_he_cuda(&he_mesh); });
 		std::cout << "calculated normals in " << time.count() << "ns\n";
 		string hes_fn = fn + "-he-cuda-normals.ply";
@@ -84,6 +86,24 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 		if (!write_mesh(mesh, hes_fn, bin_mode)) {
 			std::cerr << "failed creating file: " << hes_fn << '\n';
 		}
+	}
+	{
+		std::cout << "calculate one ring centroids with cpu (gather)\n";
+		vector<float3> centroids;
+		auto time = ab::perf::execution_time([&] {centroids_he_cpu(&he_mesh, centroids); });
+		std::cout << "calculated centroids in " << time.count() << "ns\n";
+		string he_centroid_fn = fn + "-he-cpu-centroids.ply";
+		std::cout << "creating file: " << he_centroid_fn << '\n';
+		write_pointcloud(he_centroid_fn, centroids.data(), centroids.size());
+	}
+	{
+		std::cout << "calculate one ring centroids with cpu (scatter)\n";
+		vector<float3> centroids;
+		auto time = ab::perf::execution_time([&] {centroids_sm_cpu(&mesh, centroids); });
+		std::cout << "calculated centroids in " << time.count() << "ns\n";
+		string sm_centroid_fn = fn + "-sm-cpu-centroids.ply";
+		std::cout << "creating file: " << sm_centroid_fn << '\n';
+		write_pointcloud(sm_centroid_fn, centroids.data(), centroids.size());
 	}
 	{
 		std::cout << "calculate one ring centroids with cuda (gather)\n";
@@ -116,6 +136,8 @@ int main(int argc, char* argv[]){
 	string algo_name;
 	string out;
 	string time_log;
+	size_t mesh_size = 0;
+	size_t mem_mesh_size = 0;
 	try
 	{
 		options_description desc{ "Options" };
@@ -128,7 +150,8 @@ int main(int argc, char* argv[]){
 			("threads", value<int>(), "threads per block, blocks and threads are determined automatically if ommited")
 			("blocks", value<int>(), "blocks in the grid, has no effect for cpu only algorithms, determined automatically if --threads ommited")
 			("runs", value<int>(), "=N ,run calculation N times for extensive time mesuring")
-			("time-log", value<string>(), "saves timings to file");
+			("time-log", value<string>(), "saves timings to file")
+			("strip-attributes", value<bool>(),"removes all attributes from the mesh except positions and connectivity");
 
 		variables_map vm;
 		store(parse_command_line(argc, argv, desc), vm);
@@ -140,10 +163,21 @@ int main(int argc, char* argv[]){
 			std::cout << desc << '\n';
 			return 0;
 		}
+		else if (vm.count("strip-attributes")) {
+			if (vm.count("out") && vm.count("in")) {
+				out = vm["out"].as<string>();
+				string fn = vm["in"].as<string>();
+				SimpleMesh mesh;
+				read_mesh(mesh, fn);
+				mesh.normals.clear();
+				write_mesh(mesh, out, true);
+				return 0;
+			}
+		}
 		else if (vm.count("in")) {
 			std::cout << "reading file: " << vm["in"].as<string>() << '\n';
 			string fn = vm["in"].as<string>();
-
+			mesh_size = boost::filesystem::file_size(fn);
 			if (vm.count("threads")) {
 				threads = vm["threads"].as<int>();
 			}
@@ -201,7 +235,7 @@ int main(int argc, char* argv[]){
 			}
 		}
 		else if (vm.count("test")) {
-			test_mesh(vm["test"].as<string>());
+			test_mesh(vm["test"].as<string>(),true);
 		}
 		else
 			return 0;
@@ -213,6 +247,12 @@ int main(int argc, char* argv[]){
 	}
 
 	if (funct) {
+		if (!smesh.positions.empty()) {
+			mem_mesh_size = in_memory_mesh_size(smesh);
+		}
+		else {
+			mem_mesh_size = in_memory_mesh_size(hemesh);
+		}
 		//run selected algorithm
 		cout << "selected algorithm: " << algo_name << '\n';
 		std::vector<timing_struct> timings;
@@ -225,7 +265,9 @@ int main(int argc, char* argv[]){
 
 		stringstream log_data;
 		for (timing_struct timing : timings) {
-			log_data << "["<< algo_name << " block_size=" << timing.block_size << " grid_size=" << timing.grid_size << "]\n"
+			log_data << "["<< algo_name << " block_size=" << timing.block_size << " grid_size=" 
+				<< timing.grid_size << "mesh_size="<< mesh_size <<"]\n"
+				<< "in_memory_mesh_size=" << mem_mesh_size << "\n"
 				<< "data_upload_time=" << timing.data_upload_time << "\n"
 				<< "kernel_execution_time_a=" << timing.kernel_execution_time_a << "\n"
 				<< "kernel_execution_time_b=" << timing.kernel_execution_time_b << "\n"
@@ -235,7 +277,7 @@ int main(int argc, char* argv[]){
 		if (out.size()) {
 			mesh_normal_generator* normal_gen = dynamic_cast<mesh_normal_generator*>(funct.get());
 			if (normal_gen) {
-				if (hemesh.half_edges.size()) write_mesh(hemesh, out);
+				if (hemesh.vertex_count() > 0) write_mesh(hemesh, out);
 				if (smesh.positions.size()) write_mesh(smesh, out);
 			}
 			mesh_centroid_generator* centroid_gen = dynamic_cast<mesh_centroid_generator*>(funct.get());

@@ -8,7 +8,7 @@ set( Boost_USE_MULTITHREADED ON )
 set( Boost_USE_STATIC_LIBS ON )
 set (Boost_NO_SYSTEM_PATHS  ON)
 
-find_package(Boost 1.72.0 REQUIRED COMPONENTS program_options thread)
+find_package(Boost 1.72.0 REQUIRED COMPONENTS program_options filesystem thread)
 set(VTKm_ENABLE_TESTING OFF CACHE BOOL "")
 add_subdirectory(lib/vtk-m)
 file(GLOB headers "${PROJECT_SOURCE_DIR}/include/*")
@@ -24,7 +24,7 @@ target_include_directories(onering_lib PUBLIC
 		${Boost_INCLUDE_DIR})
 
 add_executable(onering ${onering_source} ${headers})
-target_link_libraries(onering Boost::program_options onering_lib)
+target_link_libraries(onering Boost::program_options Boost::filesystem onering_lib)
 
 
 add_executable(onering_vtkm ${onering_vtkm_source} ${headers})
