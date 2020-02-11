@@ -169,10 +169,6 @@ __device__ float atomicAdd(float* address, float val)
 
 			int base_he = vert.he;
 			do {//for every neighbor
-				float3 pnormal;
-				pnormal.x = 0.f;
-				pnormal.y = 0.f;
-				pnormal.z = 0.f;
 				int he = base_he;
 				//skip boundary loops
 				if (loops[half_edges[base_he].loop].is_border) {
@@ -183,10 +179,9 @@ __device__ float atomicAdd(float* address, float val)
 					HalfEdge& halfedge = half_edges[he];
 					float3 a = vertices[halfedge.origin].position;
 					float3 b = vertices[half_edges[halfedge.next].origin].position;
-					pnormal = pnormal + cross3df(a, b);
+					normal += cross3df(a, b);
 					he = halfedge.next;
 				} while (he != base_he);
-				normal += pnormal;
 				base_he = half_edges[half_edges[base_he].inv].next;
 			} while (base_he != vert.he);
 			normals[i] = normalized(normal);
