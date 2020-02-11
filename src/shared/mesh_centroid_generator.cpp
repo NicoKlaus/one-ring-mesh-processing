@@ -29,6 +29,7 @@ namespace ab {
 
 	void mesh_centroid_generator::operator()()
 	{
+		prepare_device();
 		switch (proc_mode) {
 		case PM_SCATTER: {
 			SimpleMesh* mesh = reinterpret_cast<SimpleMesh*>(mesh_pointer);

@@ -5,17 +5,17 @@
 
 namespace ab {
 
-	struct alignas(256) Vertex {
+	struct alignas(4) Vertex {
 		float3 position;
 		int he; //is -1 when no face contains this vertex
 	};
 
-	struct alignas(256) Loop {
+	struct alignas(8) Loop {
 		int he;
 		bool is_border;
 	};
 
-	struct alignas(256) HalfEdge {
+	struct HalfEdge {
 		int origin;
 		int loop;
 

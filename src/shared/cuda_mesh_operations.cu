@@ -399,6 +399,12 @@ __device__ float atomicAdd(float* address, float val)
 		timing.data_download_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 	}
 
+	//causes the cuda driver to load to prevent loads on mesuring
+	void prepare_device() {
+		kernel_train<<<1,256>>>();
+		cudaDeviceSynchronize();
+	}
+
 }
 
 
