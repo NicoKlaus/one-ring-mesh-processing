@@ -163,6 +163,10 @@ __device__ float atomicAdd(float* address, float val)
 		for (int i = offset; i < vertice_count; i+=stride) {
 			int vert_he = vertex_he[i];
 			if (vert_he == -1) {
+				float3 normal{ 0,0,0 };
+				vertex_nx[i] = normal.x;
+				vertex_ny[i] = normal.y;
+				vertex_nz[i] = normal.z;
 				continue;
 			}
 
@@ -173,10 +177,6 @@ __device__ float atomicAdd(float* address, float val)
 
 			int base_he = vert_he;
 			do {//for every neighbor
-				float3 pnormal;
-				pnormal.x = 0.f;
-				pnormal.y = 0.f;
-				pnormal.z = 0.f;
 				int he = base_he;
 				//skip boundary loops
 				if (loops_is_border[halfedge_loops[base_he]]) {
@@ -195,12 +195,11 @@ __device__ float atomicAdd(float* address, float val)
 					by = vertex_y[he_next_origin];
 					bz = vertex_z[he_next_origin];
 
-					pnormal.x += ay * bz - by * az;
-					pnormal.y += az * bx - bz * ax;
-					pnormal.z += ax * by - bx * ay;
+					normal.x += ay * bz - by * az;
+					normal.y += az * bx - bz * ax;
+					normal.z += ax * by - bx * ay;
 					he = he_next;
 				} while (he != base_he);
-				normal += pnormal;
 				base_he = halfedge_next[halfedge_inv[base_he]];
 			} while (base_he != vert_he);
 			//normalize
