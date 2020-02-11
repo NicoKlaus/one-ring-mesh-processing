@@ -211,6 +211,63 @@ __device__ float atomicAdd(float* address, float val)
 		}
 	}
 
+	__global__ void kernel_calculate_normals_gather_area_weight_no_stride(
+		float* vertex_x, float* vertex_y, float* vertex_z,
+		float* vertex_nx, float* vertex_ny, float* vertex_nz, int* vertex_he,
+		int* halfedge_loops, int* halfedge_origins, int* halfedge_next, int* halfedge_inv,
+		bool* loops_is_border, int vertice_count) {
+		int i = thread_offset();
+		if (i > vertice_count) return;
+		//calculate normals
+			int vert_he = vertex_he[i];
+			if (vert_he == -1) {
+				return;
+			}
+
+			float3 normal;
+			normal.x = 0.f;
+			normal.y = 0.f;
+			normal.z = 0.f;
+
+			int base_he = vert_he;
+			do {//for every neighbor
+				float3 pnormal;
+				pnormal.x = 0.f;
+				pnormal.y = 0.f;
+				pnormal.z = 0.f;
+				int he = base_he;
+				//skip boundary loops
+				if (loops_is_border[halfedge_loops[base_he]]) {
+					base_he = halfedge_next[halfedge_inv[base_he]];
+					continue;
+				}
+				do {//calculate polygon normal
+					int he_origin = halfedge_origins[he];
+					int he_next = halfedge_next[he];
+					int he_next_origin = halfedge_origins[he_next];
+					float ax, ay, az, bx, by, bz;
+					ax = vertex_x[he_origin];
+					ay = vertex_y[he_origin];
+					az = vertex_z[he_origin];
+					bx = vertex_x[he_next_origin];
+					by = vertex_y[he_next_origin];
+					bz = vertex_z[he_next_origin];
+
+					pnormal.x += ay * bz - by * az;
+					pnormal.y += az * bx - bz * ax;
+					pnormal.z += ax * by - bx * ay;
+					he = he_next;
+				} while (he != base_he);
+				normal += pnormal;
+				base_he = halfedge_next[halfedge_inv[base_he]];
+			} while (base_he != vert_he);
+			//normalize
+			normal = normalized(normal);
+			vertex_nx[i] = normal.x;
+			vertex_ny[i] = normal.y;
+			vertex_nz[i] = normal.z;
+	}
+
 	__global__ void kernel_calculate_ring_centroids_gather(
 				float* vertex_x, float* vertex_y, float* vertex_z,int* vertex_he,
 				int* halfedge_next,int* halfedge_inv,int* halfedge_origins,
@@ -270,6 +327,55 @@ __device__ float atomicAdd(float* address, float val)
 				atomicAdd(neighbor_count, 1);
 			}
 		}
+	}
+
+	void normals_by_area_weight_he_cuda_no_stride(HalfedgeMesh* mesh, timing_struct& timing) {
+		mesh->clear_normals();
+		mesh->resize_normals(mesh->vertex_count()); //prepare vector for normals
+		
+
+		auto start = std::chrono::steady_clock::now(); //upload time
+		thrust::device_vector<int> halfedge_inv = mesh->half_edge_inv;
+		thrust::device_vector<int> halfedge_next = mesh->half_edge_next;
+		thrust::device_vector<int> halfedge_origins = mesh->half_edge_origins;
+		thrust::device_vector<int> halfedge_loops = mesh->half_edge_loops;
+		thrust::device_vector<float> vertex_x = mesh->vertex_positions_x;
+		thrust::device_vector<float> vertex_y = mesh->vertex_positions_y;
+		thrust::device_vector<float> vertex_z = mesh->vertex_positions_z;
+		thrust::device_vector<int> vertex_he = mesh->vertex_he;
+		thrust::device_vector<float> vertex_nx(mesh->vertex_count());
+		thrust::device_vector<float> vertex_ny(mesh->vertex_count());
+		thrust::device_vector<float> vertex_nz(mesh->vertex_count());
+		thrust::device_vector<bool> loops_is_border = mesh->loops_is_border;
+		auto stop = std::chrono::steady_clock::now();
+		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+		//setup timer
+		cudaEvent_t cu_start, cu_stop;
+		cudaEventCreate(&cu_start);
+		cudaEventCreate(&cu_stop);
+		//kernel launch
+		cudaEventRecord(cu_start);
+		int threads = 256;
+		int blocks = (mesh->vertex_count() / threads)+ mesh->vertex_count() % threads ? 1 : 0;
+		kernel_calculate_normals_gather_area_weight << <blocks, threads >> > (
+			vertex_x.data().get(), vertex_y.data().get(), vertex_z.data().get(),
+			vertex_nx.data().get(), vertex_ny.data().get(), vertex_nz.data().get(), vertex_he.data().get(),
+			halfedge_loops.data().get(), halfedge_origins.data().get(), halfedge_next.data().get(), halfedge_inv.data().get(),
+			loops_is_border.data().get(), mesh->vertex_count());
+		cudaEventRecord(cu_stop);
+		cudaEventSynchronize(cu_stop);
+		timing.kernel_execution_time_a = cuda_elapsed_time(cu_start, cu_stop);
+		cudaEventDestroy(cu_start);
+		cudaEventDestroy(cu_stop);
+
+		start = std::chrono::steady_clock::now();//download time
+		thrust::copy(vertex_nx.begin(), vertex_nx.end(), mesh->normals_x.begin());
+		thrust::copy(vertex_ny.begin(), vertex_ny.end(), mesh->normals_y.begin());
+		thrust::copy(vertex_nz.begin(), vertex_nz.end(), mesh->normals_z.begin());
+		stop = std::chrono::steady_clock::now();
+		timing.data_download_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+		timing.block_size = threads;
+		timing.grid_size = blocks;
 	}
 
 	void normals_by_area_weight_he_cuda(HalfedgeMesh* mesh, int threads,int blocks, timing_struct& timing) {
