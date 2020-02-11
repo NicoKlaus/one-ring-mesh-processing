@@ -5,17 +5,17 @@
 
 namespace ab {
 
-	struct Vertex {
+	struct alignas(256) Vertex {
 		float3 position;
 		int he; //is -1 when no face contains this vertex
 	};
 
-	struct Loop {
+	struct alignas(256) Loop {
 		int he;
 		bool is_border;
 	};
 
-	struct HalfEdge {
+	struct alignas(256) HalfEdge {
 		int origin;
 		int loop;
 
@@ -30,6 +30,25 @@ namespace ab {
 		std::vector<HalfEdge> half_edges;
 		std::vector<Loop> loops;
 	};
+
+	inline int vertex_count_of(const HalfedgeMesh& mesh) {
+		return mesh.vertices.size();
+	}
+
+	inline int face_count_of(const HalfedgeMesh& mesh) {
+		int faces = 0;
+		for (auto loop : mesh.loops) {
+			faces += !loop.is_border;
+		}
+		return faces;
+	}
+
+	inline size_t in_memory_size_of(const HalfedgeMesh& mesh) {
+		return sizeof(HalfEdge) * mesh.half_edges.size() +
+			sizeof(Vertex) * mesh.vertices.size() +
+			sizeof(Loop) * mesh.loops.size() +
+			sizeof(float3) * mesh.normals.size();
+	}
 
 	bool write_ply(const HalfedgeMesh& mesh, const std::string& file);
 

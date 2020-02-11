@@ -121,6 +121,9 @@ int main(int argc, char* argv[]){
 	string out;
 	string time_log;
 	size_t mesh_size = 0;
+	size_t vert_count = 0;
+	size_t face_count = 0;
+	size_t inmem_size = 0;
 	try
 	{
 		options_description desc{ "Options" };
@@ -230,6 +233,17 @@ int main(int argc, char* argv[]){
 	}
 
 	if (funct) {
+		//save metadata
+		if (!hemesh.half_edges.empty()) {
+			vert_count = vertex_count_of(hemesh);
+			face_count = face_count_of(hemesh);
+			inmem_size = in_memory_size_of(hemesh);
+		}
+		else if (!smesh.positions.empty()) {
+			vert_count = vertex_count_of(smesh);
+			face_count = face_count_of(smesh);
+			inmem_size = in_memory_size_of(smesh);
+		}
 		//run selected algorithm
 		cout << "selected algorithm: " << algo_name << '\n';
 		std::vector<timing_struct> timings;
@@ -247,7 +261,10 @@ int main(int argc, char* argv[]){
 				<< "data_upload_time=" << timing.data_upload_time << "\n"
 				<< "kernel_execution_time_a=" << timing.kernel_execution_time_a << "\n"
 				<< "kernel_execution_time_b=" << timing.kernel_execution_time_b << "\n"
-				<< "data_download_time=" << timing.data_download_time << "\n\n";
+				<< "data_download_time=" << timing.data_download_time << "\n"
+				<< "vertex_count=" << vert_count << "\n"
+				<< "face_count=" << face_count << "\n"
+				<< "in_memory_size=" << inmem_size << "\n\n";
 		}
 		
 		if (out.size()) {

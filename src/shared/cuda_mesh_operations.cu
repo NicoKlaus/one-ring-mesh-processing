@@ -308,7 +308,7 @@ __device__ float atomicAdd(float* address, float val)
 		timing.kernel_execution_time_a = cuda_elapsed_time(cu_start, cu_stop);
 		//run secound kernel
 		cudaEventRecord(cu_start);
-		kernel_normalize_vectors<<<1, threads>>>(normals.data().get(),normals.size());
+		kernel_normalize_vectors<<<blocks, threads>>>(normals.data().get(),normals.size());
 		cudaEventRecord(cu_stop);
 		cudaEventSynchronize(cu_stop);
 		timing.kernel_execution_time_b = cuda_elapsed_time(cu_start, cu_stop);

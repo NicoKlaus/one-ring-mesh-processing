@@ -21,7 +21,19 @@ struct SimpleMesh
 	}
 };
 
+inline int vertex_count_of(const SimpleMesh& mesh) {
+	return mesh.positions.size();
+}
 
+
+inline int face_count_of(const SimpleMesh& mesh) {
+	return mesh.faces.size();
+}
+
+inline size_t in_memory_size_of(const SimpleMesh& mesh) {
+	return sizeof(float3) * (mesh.positions.size() + mesh.normals.size()) +
+		sizeof(int) * (mesh.faces.size() + mesh.face_indices.size() + mesh.face_sizes.size());
+}
 
 bool write_ply(const SimpleMesh &mesh,const std::string &file);
 
