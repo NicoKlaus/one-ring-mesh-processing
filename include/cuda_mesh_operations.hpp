@@ -10,8 +10,12 @@ namespace ab {
 	void normals_by_area_weight_he_cuda(HalfedgeMesh* mesh, int threads = 256,int blocks=1, timing_struct& timing=timing_struct());
 	void normals_by_area_weight_he_cuda_no_stride(HalfedgeMesh* mesh, timing_struct& timing=timing_struct());
 	void normals_by_area_weight_sm_cuda(SimpleMesh* mesh, int threads = 256, int blocks = 1, timing_struct& timing = timing_struct());
-	void centroids_he_cuda(HalfedgeMesh* mesh, std::vector<float3>& centroids_array, int threads = 256,int blocks = 1, timing_struct& timing = timing_struct());
-	void centroids_sm_cuda(SimpleMesh* mesh, std::vector<float3>& centroids, int threads = 256, int blocks = 1, timing_struct& timing = timing_struct());
+	void centroids_he_cuda(HalfedgeMesh* mesh, 
+		std::vector<float>& centroids_array_x, std::vector<float>& centroids_array_y, std::vector<float>& centroids_array_z,
+		int threads = 256,int blocks = 1, timing_struct& timing = timing_struct());
+	void centroids_sm_cuda(SimpleMesh* mesh,
+		std::vector<float>& centroids_array_x, std::vector<float>& centroids_array_y, std::vector<float>& centroids_array_z,
+		int threads = 256, int blocks = 1, timing_struct& timing = timing_struct());
 
 	//float3 extensions
 	__forceinline__ __host__ __device__ float3 cross3df(const float3 a, const float3 b) {

@@ -89,11 +89,17 @@ __device__ float atomicAdd(float* address, float val)
 		
 	}
 
-	__global__ void kernel_normalize_vectors(float3* vec,unsigned size){
+	__global__ void kernel_normalize_vectors(float* vec_x, float* vec_y, float* vec_z,unsigned size){
 		int stride = thread_stride();
 		int offset = thread_offset();
 		for (int i = offset; i < size; i += stride) {
-			vec[i] = normalized(vec[i]);
+			float x = vec_x[i];
+			float y = vec_y[i];
+			float z = vec_z[i];
+			float rnorm = rsqrtf(x * x + y * y + z * z);
+			vec_x[i] = rnorm*x;
+			vec_y[i] = rnorm*y;
+			vec_z[i] = rnorm*z;
 		}
 	}
 	
@@ -108,45 +114,57 @@ __device__ float atomicAdd(float* address, float val)
 		}
 	}
 
-	__global__ void kernel_divide(float3* vec, int* div, unsigned vec_size) {
+	__global__ void kernel_divide_vectors(float* vec_x, float* vec_y, float* vec_z, int* div, unsigned vec_size) {
 		int stride = thread_stride();
 		int offset = thread_offset();
 		for (int i = offset; i < vec_size; i += stride) {
 			float fdiv = static_cast<float>(div[i]);
-			vec[i].x /= fdiv;
-			vec[i].y /= fdiv;
-			vec[i].z /= fdiv;
+			vec_x[i] /= fdiv;
+			vec_y[i] /= fdiv;
+			vec_z[i] /= fdiv;
 		}
 	}
 
-	__global__ void kernel_calculate_normals_scatter_area_weight(float3* positions,int* faces,int* face_indices,int* face_sizes, float3* normals, int face_count) {
+	__global__ void kernel_calculate_normals_scatter_area_weight(
+			float* positions_x, float* positions_y, float* positions_z,
+			float* normals_x, float* normals_y, float* normals_z, int* faces, int* face_indices, int* face_sizes, int face_count) {
 		int stride = thread_stride();
 		int offset = thread_offset();
 		for (int i = offset; i < face_count; i += stride) {
 			int base_index = faces[i];
 			int face_size = face_sizes[i];
 			
-			float3 point_a = positions[face_indices[base_index+(face_size-1)]];
-			float3 point_b = positions[face_indices[base_index]];
-			float3 edge_vector_ab = point_b-point_a;
-			float3 normal;
-			normal.x = 0.f;
-			normal.y = 0.f;
-			normal.z = 0.f;
+			int pa_idx = face_indices[base_index + (face_size - 1)];
+			int pb_idx = face_indices[base_index];
+			float point_b_x = positions_x[pb_idx];
+			float point_b_y = positions_y[pb_idx];
+			float point_b_z = positions_z[pb_idx];
+			float edge_vector_ab_x = point_b_x- positions_x[pa_idx];
+			float edge_vector_ab_y = point_b_y- positions_y[pa_idx];
+			float edge_vector_ab_z = point_b_z- positions_z[pa_idx];
+			float normal_x = 0.f;
+			float normal_y = 0.f;
+			float normal_z = 0.f;
 			//circulate trough the rest of the face and calculate the normal
 			for (int j = 0;j< face_size;++j){
-				float3 point_c = positions[face_indices[base_index+((j+1)%face_size)]];
-				float3 edge_vector_bc = point_c - point_b;
+				int pc_idx = face_indices[base_index + ((j + 1) % face_size)];
+				float edge_vector_bc_x = positions_x[pc_idx] - point_b_x;
+				float edge_vector_bc_y = positions_y[pc_idx] - point_b_y;
+				float edge_vector_bc_z = positions_z[pc_idx] - point_b_z;
 				//adding to the normal vector
-				normal += cross3df(edge_vector_ab,edge_vector_bc);
-				edge_vector_ab = edge_vector_bc;
+				normal_x += edge_vector_ab_y * edge_vector_bc_z - edge_vector_bc_y * edge_vector_ab_z;
+				normal_y += edge_vector_ab_z * edge_vector_bc_x - edge_vector_bc_z * edge_vector_ab_x;
+				normal_z += edge_vector_ab_x * edge_vector_bc_y - edge_vector_bc_x * edge_vector_ab_y;
+				edge_vector_ab_x = edge_vector_bc_x;
+				edge_vector_ab_y = edge_vector_bc_y;
+				edge_vector_ab_z = edge_vector_bc_z;
 			}
 			//add to every vertice in the face
 			for (int j = 0;j< face_size;++j){
-				float3* vn = &normals[face_indices[base_index+j]];
-				atomicAdd(&vn->x, normal.x);
-				atomicAdd(&vn->y, normal.y);
-				atomicAdd(&vn->z, normal.z);
+				int n_idx = face_indices[base_index + j];
+				atomicAdd(normals_x+n_idx, normal_x);
+				atomicAdd(normals_y+n_idx, normal_y);
+				atomicAdd(normals_z+n_idx, normal_z);
 			}
 		}
 	}
@@ -270,7 +288,7 @@ __device__ float atomicAdd(float* address, float val)
 	__global__ void kernel_calculate_ring_centroids_gather(
 				float* vertex_x, float* vertex_y, float* vertex_z,int* vertex_he,
 				int* halfedge_next,int* halfedge_inv,int* halfedge_origins,
-				float3* centroids, unsigned vertice_count) {
+				float* centroids_x, float* centroids_y, float* centroids_z, unsigned vertice_count) {
 		int stride = thread_stride();
 		int offset = thread_offset();
 
@@ -302,11 +320,16 @@ __device__ float atomicAdd(float* address, float val)
 			centroid.x /= neighbors;
 			centroid.y /= neighbors;
 			centroid.z /= neighbors;
-			centroids[i] = centroid;
+			centroids_x[i] = centroid.x;
+			centroids_y[i] = centroid.y;
+			centroids_z[i] = centroid.z;
 		}
 	}
 	
-	__global__ void kernel_calculate_ring_centroids_scatter(float3* positions, int* faces, int* face_indices, int* face_sizes, float3* centroids, int* duped_neighbor_counts, int face_count) {
+	__global__ void kernel_calculate_ring_centroids_scatter(
+			float* positions_x, float* positions_y, float* positions_z,
+			float* centroids_x, float* centroids_y, float* centroids_z,
+			int* faces, int* face_indices, int* face_sizes, int* neighbor_counts, int face_count) {
 		int stride = thread_stride();
 		int offset = thread_offset();
 		for (int i = offset; i < face_count; i += stride) {
@@ -315,15 +338,12 @@ __device__ float atomicAdd(float* address, float val)
 
 			//circulate trough the face and add it to the centroids
 			for (int j = 0; j < face_size; ++j) {
-				float3 next = positions[face_indices[base_index + ((j+1) % face_size)]];
-				//float3 prev = positions[face_indices[base_index + ((j-1) % face_size)]];
-				
-				float3* centroid = centroids+face_indices[base_index+j];
-				int* neighbor_count = duped_neighbor_counts+face_indices[base_index+j];
-				atomicAdd(&centroid->x, next.x);
-				atomicAdd(&centroid->y, next.y);
-				atomicAdd(&centroid->z, next.z);
-				atomicAdd(neighbor_count, 1);
+				int next_idx = face_indices[base_index + ((j + 1) % face_size)];
+				int centroid_idx = face_indices[base_index + j];
+				atomicAdd(centroids_x+centroid_idx, positions_x[next_idx]);
+				atomicAdd(centroids_y+centroid_idx, positions_y[next_idx]);
+				atomicAdd(centroids_z+centroid_idx, positions_z[next_idx]);
+				atomicAdd(neighbor_counts + centroid_idx, 1);
 			}
 		}
 	}
@@ -427,17 +447,22 @@ __device__ float atomicAdd(float* address, float val)
 
 	/// normals from a simple mesh
 	void normals_by_area_weight_sm_cuda(SimpleMesh* mesh,int threads,int blocks, timing_struct& timing) {
-		mesh->normals.resize(mesh->positions.size());
+		mesh->clear_normals();
+		mesh->resize_normals(mesh->vertex_count());
 		if (threads == 0) optimal_configuration(blocks, threads, kernel_calculate_normals_scatter_area_weight);
 		timing.block_size = threads;
 		timing.grid_size = blocks;
 
 		auto start = std::chrono::steady_clock::now(); //upload time
-		thrust::device_vector<float3> positions = mesh->positions;
+		thrust::device_vector<float> positions_x = mesh->positions_x;
+		thrust::device_vector<float> positions_y = mesh->positions_y;
+		thrust::device_vector<float> positions_z = mesh->positions_z;
+		thrust::device_vector<float> normals_x(mesh->vertex_count());
+		thrust::device_vector<float> normals_y(mesh->vertex_count());
+		thrust::device_vector<float> normals_z(mesh->vertex_count());
 		thrust::device_vector<int> faces = mesh->faces;
 		thrust::device_vector<int> faces_indices = mesh->face_indices;
 		thrust::device_vector<int> faces_sizes = mesh->face_sizes;
-		thrust::device_vector<float3> normals = mesh->normals;
 		auto stop = std::chrono::steady_clock::now();
 		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 		
@@ -446,13 +471,15 @@ __device__ float atomicAdd(float* address, float val)
 		cudaEventCreate(&cu_stop);
 		//run kernel
 		cudaEventRecord(cu_start);
-		kernel_calculate_normals_scatter_area_weight<<<blocks, threads>>>(positions.data().get(), faces.data().get(), faces_indices.data().get(), faces_sizes.data().get(), normals.data().get(), faces.size());
+		kernel_calculate_normals_scatter_area_weight<<<blocks, threads>>>(positions_x.data().get(), positions_y.data().get(), positions_z.data().get(),
+				normals_x.data().get(), normals_y.data().get(), normals_z.data().get(),
+				faces.data().get(), faces_indices.data().get(), faces_sizes.data().get(),faces.size());
 		cudaEventRecord(cu_stop);
 		cudaEventSynchronize(cu_stop);
 		timing.kernel_execution_time_a = cuda_elapsed_time(cu_start, cu_stop);
 		//run secound kernel
 		cudaEventRecord(cu_start);
-		kernel_normalize_vectors<<<1, threads>>>(normals.data().get(),normals.size());
+		kernel_normalize_vectors<<<blocks, threads>>>(normals_x.data().get(), normals_y.data().get(), normals_z.data().get(),normals_x.size());
 		cudaEventRecord(cu_stop);
 		cudaEventSynchronize(cu_stop);
 		timing.kernel_execution_time_b = cuda_elapsed_time(cu_start, cu_stop);
@@ -461,14 +488,19 @@ __device__ float atomicAdd(float* address, float val)
 		cudaEventDestroy(cu_stop);
 
 		start = std::chrono::steady_clock::now();
-		//printf("CUDA error: %s\n", cudaGetErrorString(cudaGetLastError()));
-		thrust::copy(normals.begin(), normals.end(), mesh->normals.begin());
+		thrust::copy(normals_x.begin(), normals_x.end(), mesh->normals_x.begin());
+		thrust::copy(normals_y.begin(), normals_y.end(), mesh->normals_y.begin());
+		thrust::copy(normals_z.begin(), normals_z.end(), mesh->normals_z.begin());
 		stop = std::chrono::steady_clock::now();
 		timing.data_download_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 	}
 
-	void centroids_he_cuda(HalfedgeMesh* mesh, std::vector<float3>& centroids_array, int threads,int blocks, timing_struct& timing) {
-		centroids_array.resize(mesh->vertex_count());
+	void centroids_he_cuda(HalfedgeMesh* mesh,
+			std::vector<float>& centroids_array_x, std::vector<float>& centroids_array_y, std::vector<float>& centroids_array_z, 
+			int threads,int blocks, timing_struct& timing) {
+		centroids_array_x.resize(mesh->vertex_count());
+		centroids_array_y.resize(mesh->vertex_count());
+		centroids_array_z.resize(mesh->vertex_count());
 		if (threads == 0) optimal_configuration(blocks, threads, kernel_calculate_ring_centroids_gather);
 		timing.block_size = threads;
 		timing.grid_size = blocks;
@@ -481,7 +513,9 @@ __device__ float atomicAdd(float* address, float val)
 		thrust::device_vector<int> halfedge_inv = mesh->half_edge_inv;
 		thrust::device_vector<int> halfedge_next = mesh->half_edge_next;
 		thrust::device_vector<int> halfedge_origins = mesh->half_edge_origins;
-		thrust::device_vector<float3> centroids = centroids_array;
+		thrust::device_vector<float> centroids_x = centroids_array_x;
+		thrust::device_vector<float> centroids_y = centroids_array_y;
+		thrust::device_vector<float> centroids_z = centroids_array_z;
 		auto stop = std::chrono::steady_clock::now();
 		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 		//create events
@@ -490,8 +524,9 @@ __device__ float atomicAdd(float* address, float val)
 		cudaEventCreate(&cu_stop);
 		//launch kernel
 		cudaEventRecord(cu_start);
-		kernel_calculate_ring_centroids_gather<<<blocks, threads>>>(vertex_x.data().get(), vertex_y.data().get(), vertex_z.data().get(), vertex_he.data().get(),
-			halfedge_next.data().get(), halfedge_inv.data().get(), halfedge_origins.data().get(), centroids.data().get(), mesh->vertex_count());
+		kernel_calculate_ring_centroids_gather<<<blocks, threads>>>(vertex_x.data().get(), vertex_y.data().get(), vertex_z.data().get(),
+			vertex_he.data().get(),halfedge_next.data().get(), halfedge_inv.data().get(), halfedge_origins.data().get(),
+			centroids_x.data().get(), centroids_y.data().get(), centroids_z.data().get(), mesh->vertex_count());
 		cudaEventRecord(cu_stop);
 		cudaEventSynchronize(cu_stop);
 		timing.kernel_execution_time_a = cuda_elapsed_time(cu_start, cu_stop);
@@ -501,24 +536,34 @@ __device__ float atomicAdd(float* address, float val)
 
 		//read back
 		start = std::chrono::steady_clock::now();
-		thrust::copy(centroids.begin(), centroids.end(), centroids_array.begin());
+		thrust::copy(centroids_x.begin(), centroids_x.end(), centroids_array_x.begin());
+		thrust::copy(centroids_y.begin(), centroids_y.end(), centroids_array_y.begin());
+		thrust::copy(centroids_z.begin(), centroids_z.end(), centroids_array_z.begin());
 		stop = std::chrono::steady_clock::now();
 		timing.data_download_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 	}
 
-	void centroids_sm_cuda(SimpleMesh* mesh, std::vector<float3>& centroids_array, int threads,int blocks, timing_struct& timing) {
-		centroids_array.resize(mesh->positions.size());
+	void centroids_sm_cuda(SimpleMesh* mesh,
+			std::vector<float>& centroids_array_x, std::vector<float>& centroids_array_y, std::vector<float>& centroids_array_z,
+			int threads,int blocks, timing_struct& timing) {
+		centroids_array_x.resize(mesh->vertex_count());
+		centroids_array_y.resize(mesh->vertex_count());
+		centroids_array_z.resize(mesh->vertex_count());
 		if (threads == 0) optimal_configuration(blocks, threads, kernel_calculate_ring_centroids_scatter);
 		timing.block_size = threads;
 		timing.grid_size = blocks;
 
 		auto start = std::chrono::steady_clock::now();
-		thrust::device_vector<float3> positions = mesh->positions;
+		thrust::device_vector<float> positions_x = mesh->positions_x;
+		thrust::device_vector<float> positions_y = mesh->positions_y;
+		thrust::device_vector<float> positions_z = mesh->positions_z;
 		thrust::device_vector<int> faces = mesh->faces;
 		thrust::device_vector<int> faces_indices = mesh->face_indices;
 		thrust::device_vector<int> faces_sizes = mesh->face_sizes;
-		thrust::device_vector<float3> centroids = centroids_array;
-		thrust::device_vector<int> neighbor_count(mesh->positions.size(),0);
+		thrust::device_vector<float> centroids_x = centroids_array_x;
+		thrust::device_vector<float> centroids_y = centroids_array_y;
+		thrust::device_vector<float> centroids_z = centroids_array_z;
+		thrust::device_vector<int> neighbor_count(mesh->vertex_count(),0);
 		auto stop = std::chrono::steady_clock::now();
 		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 		
@@ -527,14 +572,16 @@ __device__ float atomicAdd(float* address, float val)
 		cudaEventCreate(&cu_stop);
 		//run kernel
 		cudaEventRecord(cu_start);
-		kernel_calculate_ring_centroids_scatter<<<blocks, threads>>>(positions.data().get(), faces.data().get(),
-				faces_indices.data().get(), faces_sizes.data().get(), centroids.data().get(),neighbor_count.data().get(), faces.size());
+		kernel_calculate_ring_centroids_scatter<<<blocks, threads>>>(positions_x.data().get(), positions_y.data().get(), positions_z.data().get(),
+			centroids_x.data().get(), centroids_y.data().get(), centroids_z.data().get(),
+			faces.data().get(), faces_indices.data().get(), faces_sizes.data().get(), neighbor_count.data().get(), faces.size());
 		cudaEventRecord(cu_stop);
 		cudaEventSynchronize(cu_stop);
 		timing.kernel_execution_time_a = cuda_elapsed_time(cu_start, cu_stop);
 		//divide
 		cudaEventRecord(cu_start);
-		kernel_divide<<<blocks, threads>>>(centroids.data().get(), neighbor_count.data().get(), centroids.size());
+		kernel_divide_vectors<<<blocks, threads>>>(centroids_x.data().get(), centroids_y.data().get(), centroids_z.data().get(),
+				neighbor_count.data().get(), centroids_x.size());
 		cudaEventRecord(cu_stop);
 		cudaEventSynchronize(cu_stop);
 		timing.kernel_execution_time_b = cuda_elapsed_time(cu_start, cu_stop);
@@ -543,7 +590,9 @@ __device__ float atomicAdd(float* address, float val)
 		cudaEventDestroy(cu_stop);
 
 		start = std::chrono::steady_clock::now();
-		thrust::copy(centroids.begin(), centroids.end(), centroids_array.begin());
+		thrust::copy(centroids_x.begin(), centroids_x.end(), centroids_array_x.begin());
+		thrust::copy(centroids_y.begin(), centroids_y.end(), centroids_array_y.begin());
+		thrust::copy(centroids_z.begin(), centroids_z.end(), centroids_array_z.begin());
 		stop = std::chrono::steady_clock::now();
 		timing.data_download_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 	}

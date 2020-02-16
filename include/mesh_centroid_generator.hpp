@@ -11,7 +11,9 @@ namespace ab {
 		mesh_centroid_generator(HalfedgeMesh* mesh, ProcessingDevice dev, size_t threads, size_t blocks = 1);
 		~mesh_centroid_generator();
 		void operator()();
-		std::vector<float3> centroids;
+		std::vector<float> centroids_x;
+		std::vector<float> centroids_y;
+		std::vector<float> centroids_z;
 	};
 
 }

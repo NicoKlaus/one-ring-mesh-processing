@@ -6,7 +6,7 @@
 
 namespace ab {
 
-	void write_pointcloud(const std::string& fn, float3* points, size_t size, bool binary_mode = false);
+	void write_pointcloud(const std::string& fn, float* points_x, float* points_y, float* points_z, size_t size, bool binary_mode = false);
 	bool write_mesh(const SimpleMesh& mesh, const std::string& file, bool binary_mode = false);
 	bool write_mesh(const HalfedgeMesh& mesh, const std::string& file, bool binary_mode = false);
 	bool read_mesh(SimpleMesh& mesh, const std::string& file);

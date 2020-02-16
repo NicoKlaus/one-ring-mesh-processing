@@ -8,6 +8,10 @@ namespace ab {
 	
 	void normals_by_area_weight_he_cpu(HalfedgeMesh* mesh, int threads=8, timing_struct& timing = timing_struct());
 	void normals_by_area_weight_sm_cpu(SimpleMesh* mesh, int threads=8, timing_struct& timing = timing_struct());
-	void centroids_he_cpu(HalfedgeMesh* mesh, std::vector<float3>& centroids_array, size_t threads = 8, timing_struct& timing = timing_struct());
-	void centroids_sm_cpu(SimpleMesh* mesh, std::vector<float3>& centroids_array, size_t threads = 8, timing_struct& timing = timing_struct());
+	void centroids_he_cpu(HalfedgeMesh* mesh, 
+			std::vector<float>& centroids_array_x, std::vector<float>& centroids_array_y, std::vector<float>& centroids_array_z, 
+			size_t threads = 8, timing_struct& timing = timing_struct());
+	void centroids_sm_cpu(SimpleMesh* mesh,
+			std::vector<float>& centroids_array_x, std::vector<float>& centroids_array_y, std::vector<float>& centroids_array_z, 
+			size_t threads = 8, timing_struct& timing = timing_struct());
 }

@@ -4,34 +4,6 @@
 
 
 namespace ab {
-	/*normal halfedge mesh structure*/
-	/*
-	struct Vertex {
-		float3 position;
-		int he; //is -1 when no face contains this vertex
-	};
-	
-	struct Loop {
-		int he;
-		bool is_border;
-	};
-
-	struct HalfEdge {
-		int origin;
-		int loop;
-
-		int next;
-		int prev;
-		int inv;
-	};
-
-	struct HalfedgeMesh {
-		std::vector<Vertex> vertices;
-		std::vector<float3> normals;
-		std::vector<HalfEdge> half_edges;
-		std::vector<Loop> loops;
-	};
-	*/
 
 	struct HalfedgeMesh {
 		std::vector<float> vertex_positions_x;

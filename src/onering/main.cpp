@@ -78,7 +78,7 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	}
 	{
 		std::cout << "calculate normals with cuda (scatter)\n";
-		mesh.normals.clear();
+		mesh.clear_normals();
 		auto time = ab::perf::execution_time([&]{normals_by_area_weight_sm_cuda(&mesh); });
 		std::cout << "calculated normals in " << time.count() << "ns\n";
 		string hes_fn = fn + "-sm-cuda-normals.ply";
@@ -89,39 +89,39 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	}
 	{
 		std::cout << "calculate one ring centroids with cpu (gather)\n";
-		vector<float3> centroids;
-		auto time = ab::perf::execution_time([&] {centroids_he_cpu(&he_mesh, centroids); });
+		vector<float> centroids_x,centroids_y,centroids_z;
+		auto time = ab::perf::execution_time([&] {centroids_he_cpu(&he_mesh, centroids_x,centroids_y,centroids_z); });
 		std::cout << "calculated centroids in " << time.count() << "ns\n";
 		string he_centroid_fn = fn + "-he-cpu-centroids.ply";
 		std::cout << "creating file: " << he_centroid_fn << '\n';
-		write_pointcloud(he_centroid_fn, centroids.data(), centroids.size());
+		write_pointcloud(he_centroid_fn, centroids_x.data(), centroids_y.data(), centroids_z.data(), centroids_x.size());
 	}
 	{
 		std::cout << "calculate one ring centroids with cpu (scatter)\n";
-		vector<float3> centroids;
-		auto time = ab::perf::execution_time([&] {centroids_sm_cpu(&mesh, centroids); });
+		vector<float> centroids_x, centroids_y, centroids_z;
+		auto time = ab::perf::execution_time([&] {centroids_sm_cpu(&mesh, centroids_x, centroids_y, centroids_z); });
 		std::cout << "calculated centroids in " << time.count() << "ns\n";
 		string sm_centroid_fn = fn + "-sm-cpu-centroids.ply";
 		std::cout << "creating file: " << sm_centroid_fn << '\n';
-		write_pointcloud(sm_centroid_fn, centroids.data(), centroids.size());
+		write_pointcloud(sm_centroid_fn, centroids_x.data(), centroids_y.data(), centroids_z.data(), centroids_x.size());
 	}
 	{
 		std::cout << "calculate one ring centroids with cuda (gather)\n";
-		vector<float3> centroids;
-		auto time = ab::perf::execution_time([&]{centroids_he_cuda(&he_mesh,centroids); });
+		vector<float> centroids_x, centroids_y, centroids_z;
+		auto time = ab::perf::execution_time([&]{centroids_he_cuda(&he_mesh, centroids_x, centroids_y, centroids_z); });
 		std::cout << "calculated centroids in " << time.count() << "ns\n";
 		string he_centroid_fn = fn + "-he-cuda-centroids.ply";
 		std::cout << "creating file: " << he_centroid_fn << '\n';
-		write_pointcloud(he_centroid_fn, centroids.data(), centroids.size());
+		write_pointcloud(he_centroid_fn, centroids_x.data(), centroids_y.data(), centroids_z.data(), centroids_x.size());
 	}
 	{
 		std::cout << "calculate one ring centroids with cuda (scatter)\n";
-		vector<float3> centroids;
-		auto time = ab::perf::execution_time([&] {centroids_sm_cuda(&mesh, centroids); });
+		vector<float> centroids_x, centroids_y, centroids_z;
+		auto time = ab::perf::execution_time([&] {centroids_sm_cuda(&mesh, centroids_x, centroids_y, centroids_z); });
 		std::cout << "calculated centroids in " << time.count() << "ns\n";
 		string sm_centroid_fn = fn + "-sm-cuda-centroids.ply";
 		std::cout << "creating file: " << sm_centroid_fn << '\n';
-		write_pointcloud(sm_centroid_fn, centroids.data(), centroids.size());
+		write_pointcloud(sm_centroid_fn, centroids_x.data(), centroids_y.data(), centroids_z.data(), centroids_x.size());
 	}
 	return true;
 }
@@ -169,7 +169,7 @@ int main(int argc, char* argv[]){
 				string fn = vm["in"].as<string>();
 				SimpleMesh mesh;
 				read_mesh(mesh, fn);
-				mesh.normals.clear();
+				mesh.clear_normals();
 				write_mesh(mesh, out, true);
 				return 0;
 			}
@@ -247,7 +247,7 @@ int main(int argc, char* argv[]){
 	}
 
 	if (funct) {
-		if (!smesh.positions.empty()) {
+		if (smesh.vertex_count()) {
 			mem_mesh_size = in_memory_mesh_size(smesh);
 		}
 		else {
@@ -278,11 +278,12 @@ int main(int argc, char* argv[]){
 			mesh_normal_generator* normal_gen = dynamic_cast<mesh_normal_generator*>(funct.get());
 			if (normal_gen) {
 				if (hemesh.vertex_count() > 0) write_mesh(hemesh, out);
-				if (smesh.positions.size()) write_mesh(smesh, out);
+				if (smesh.vertex_count() > 0) write_mesh(smesh, out);
 			}
 			mesh_centroid_generator* centroid_gen = dynamic_cast<mesh_centroid_generator*>(funct.get());
 			if (centroid_gen) {
-				write_pointcloud(out, centroid_gen->centroids.data(), centroid_gen->centroids.size());
+				write_pointcloud(out, centroid_gen->centroids_x.data(), centroid_gen->centroids_y.data(), centroid_gen->centroids_z.data(),
+						centroid_gen->centroids_x.size());
 			}
 		} 
 		if (time_log.size()) {

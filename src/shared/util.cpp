@@ -8,17 +8,10 @@ namespace ab {
 	bool read_mesh(SimpleMesh& mesh, const string& file) {
 		PLYData plyIn(file);
 		plyIn.validate();
-		std::vector<float> xPos = plyIn.getElement("vertex").getProperty<float>("x");
-		std::vector<float> yPos = plyIn.getElement("vertex").getProperty<float>("y");
-		std::vector<float> zPos = plyIn.getElement("vertex").getProperty<float>("z");
+		mesh.positions_x = plyIn.getElement("vertex").getProperty<float>("x");
+		mesh.positions_y = plyIn.getElement("vertex").getProperty<float>("y");
+		mesh.positions_z = plyIn.getElement("vertex").getProperty<float>("z");
 
-		std::vector<float3>& positions = mesh.positions;
-		positions.resize(xPos.size());
-		for (size_t i = 0; i < positions.size(); ++i) {
-			positions[i].x = xPos[i];
-			positions[i].y = yPos[i];
-			positions[i].z = zPos[i];
-		}
 		std::vector<std::vector<int>> faces_vector = plyIn.getElement("face").getListProperty<int>("vertex_indices");
 
 		//clear vectors
@@ -45,68 +38,35 @@ namespace ab {
 		return create_he_mesh_from(mesh, s_mesh);
 	}
 
-	void write_pointcloud(const string& fn, float3* points, size_t size,bool binary_mode)
+	void write_pointcloud(const string& fn, float* points_x, float* points_y, float* points_z, size_t size,bool binary_mode)
 	{
 		PLYData plyOut;
+		vector<float> x;
+		x.resize(size);
 		plyOut.addElement("vertex", size);
-
-		//positions
-		vector<float> coordsX;
-		for (size_t i = 0; i < size; ++i) {
-			coordsX.push_back(points[i].x);
-		}
-		plyOut.getElement("vertex").addProperty<float>("x", coordsX);
-
-		for (size_t i = 0; i < size; ++i) {
-			coordsX[i] = points[i].y;
-		}
-		plyOut.getElement("vertex").addProperty<float>("y", coordsX);
-
-		for (size_t i = 0; i < size; ++i) {
-			coordsX[i] = points[i].z;
-		}
-		plyOut.getElement("vertex").addProperty<float>("z", coordsX);
+		memcpy(x.data(), points_x, size * sizeof(float));
+		plyOut.getElement("vertex").addProperty<float>("x", x);
+		memcpy(x.data(), points_y, size * sizeof(float));
+		plyOut.getElement("vertex").addProperty<float>("y", x);
+		memcpy(x.data(), points_z, size * sizeof(float));
+		plyOut.getElement("vertex").addProperty<float>("z", x);
 		plyOut.write(fn, binary_mode ? happly::DataFormat::Binary : happly::DataFormat::ASCII);
 	}
 
 
 	bool write_mesh(const SimpleMesh& mesh, const std::string& file,bool binary_mode) {
 		PLYData plyOut;
-		plyOut.addElement("vertex", mesh.positions.size());
+		plyOut.addElement("vertex", mesh.vertex_count());
 
 		//positions
-		vector<float> coordsX;
-		for (auto pos : mesh.positions) {
-			coordsX.push_back(pos.x);
-		}
-		plyOut.getElement("vertex").addProperty<float>("x", coordsX);
+		plyOut.getElement("vertex").addProperty<float>("x", mesh.positions_x);
+		plyOut.getElement("vertex").addProperty<float>("y", mesh.positions_y);
+		plyOut.getElement("vertex").addProperty<float>("z", mesh.positions_z);
 
-		for (size_t i = 0; i < mesh.positions.size(); ++i) {
-			coordsX[i] = mesh.positions[i].y;
-		}
-		plyOut.getElement("vertex").addProperty<float>("y", coordsX);
-
-		for (size_t i = 0; i < mesh.positions.size(); ++i) {
-			coordsX[i] = mesh.positions[i].z;
-		}
-		plyOut.getElement("vertex").addProperty<float>("z", coordsX);
-
-		if (mesh.normals.size() > 0 && mesh.normals.size() == mesh.positions.size()) {
-			coordsX.resize(mesh.normals.size());
-			for (size_t i = 0; i < mesh.normals.size(); ++i) {
-				coordsX[i] = mesh.normals[i].x;
-			}
-			plyOut.getElement("vertex").addProperty<float>("nx", coordsX);
-
-			for (size_t i = 0; i < mesh.normals.size(); ++i) {
-				coordsX[i] = mesh.normals[i].y;
-			}
-			plyOut.getElement("vertex").addProperty<float>("ny", coordsX);
-
-			for (size_t i = 0; i < mesh.normals.size(); ++i) {
-				coordsX[i] = mesh.normals[i].z;
-			}
-			plyOut.getElement("vertex").addProperty<float>("nz", coordsX);
+		if (mesh.normals_x.size() > 0 && mesh.normals_x.size() == mesh.vertex_count()) {
+			plyOut.getElement("vertex").addProperty<float>("nx", mesh.normals_x);
+			plyOut.getElement("vertex").addProperty<float>("ny", mesh.normals_y);
+			plyOut.getElement("vertex").addProperty<float>("nz", mesh.normals_z);
 		}
 
 		//faces
@@ -137,8 +97,8 @@ namespace ab {
 		size += sizeof(int) * mesh.faces.size() +
 			sizeof(int) * mesh.face_indices.size() +
 			sizeof(int) * mesh.face_sizes.size() +
-			sizeof(float3) * mesh.normals.size() +
-			sizeof(float3) * mesh.positions.size();
+			3*sizeof(float) * mesh.normals_x.size() +
+			3*sizeof(float) * mesh.positions_x.size();
 		return size;
 	}
 	

@@ -31,18 +31,18 @@ namespace ab{
 	bool create_he_mesh_from(HalfedgeMesh& he_mesh,const SimpleMesh& s_mesh) {
 		he_mesh.clear();
 		//copy vertex positions
-		for (size_t i = 0; i < s_mesh.positions.size(); ++i) {
-			he_mesh.vertex_positions_x.push_back(s_mesh.positions[i].x);
-			he_mesh.vertex_positions_y.push_back(s_mesh.positions[i].y);
-			he_mesh.vertex_positions_z.push_back(s_mesh.positions[i].z);
+		for (size_t i = 0; i < s_mesh.vertex_count(); ++i) {
+			he_mesh.vertex_positions_x.push_back(s_mesh.positions_x[i]);
+			he_mesh.vertex_positions_y.push_back(s_mesh.positions_y[i]);
+			he_mesh.vertex_positions_z.push_back(s_mesh.positions_z[i]);
 			he_mesh.vertex_he.push_back(-1);
 		}
 
 		//copy normals
-		for (size_t i = 0; i < s_mesh.normals.size(); ++i) {
-			he_mesh.normals_x.push_back(s_mesh.normals[i].x);
-			he_mesh.normals_y.push_back(s_mesh.normals[i].y);
-			he_mesh.normals_z.push_back(s_mesh.normals[i].z);
+		for (size_t i = 0; i < s_mesh.normals_x.size(); ++i) {
+			he_mesh.normals_x.push_back(s_mesh.normals_x[i]);
+			he_mesh.normals_y.push_back(s_mesh.normals_y[i]);
+			he_mesh.normals_z.push_back(s_mesh.normals_z[i]);
 		}
 
 		//process faces
@@ -149,20 +149,15 @@ namespace ab{
 	bool create_simple_mesh_from(SimpleMesh& s_mesh,const HalfedgeMesh& he_mesh)
 	{
 		//reset arrays
-		s_mesh.positions.resize(0);
-		s_mesh.faces.resize(0);
-		s_mesh.face_indices.resize(0);
-		s_mesh.face_sizes.resize(0);
-		s_mesh.normals.resize(0);
+		s_mesh.clear();
 
-		for (int i = 0; i < he_mesh.normals_x.size();++i) {
-			s_mesh.normals.emplace_back(float3{he_mesh.normals_x[i],he_mesh.normals_y[i] ,he_mesh.normals_z[i] });
-		}
+		s_mesh.normals_x = he_mesh.normals_x;
+		s_mesh.normals_y = he_mesh.normals_y;
+		s_mesh.normals_z = he_mesh.normals_z;
 
-		for (int i = 0; i < he_mesh.vertex_positions_x.size(); ++i) {
-			s_mesh.positions.emplace_back(float3{ he_mesh.vertex_positions_x[i],he_mesh.vertex_positions_y[i] ,he_mesh.vertex_positions_z[i] });
-		}
-
+		s_mesh.positions_x = he_mesh.vertex_positions_x;
+		s_mesh.positions_y = he_mesh.vertex_positions_y;
+		s_mesh.positions_z = he_mesh.vertex_positions_z;
 
 		//construct face list
 		for (int i=0; i < he_mesh.loops_size(); ++i) {
