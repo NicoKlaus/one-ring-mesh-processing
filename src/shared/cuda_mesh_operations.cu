@@ -1,5 +1,7 @@
 #include <cuda_mesh_operations.hpp>
 #include <thrust/device_vector.h>
+#include <thrust/sort.h>
+#include <thrust/unique.h>
 #include <device_launch_parameters.h>
 #include <chrono>
 #include <timing_struct.hpp>
@@ -221,7 +223,7 @@ __device__ float atomicAdd(float* address, float val)
 		}
 	}
 	
-	__global__ void kernel_calculate_ring_centroids_scatter(float3* positions, int* faces, int* face_indices, int* face_sizes, float3* centroids, int* duped_neighbor_counts, int face_count) {
+	__global__ void kernel_calculate_ring_centroids_scatter_no_borders(float3* positions, int* faces, int* face_indices, int* face_sizes, float3* centroids, int* duped_neighbor_counts, int face_count) {
 		int stride = thread_stride();
 		int offset = thread_offset();
 		for (int i = offset; i < face_count; i += stride) {
@@ -242,6 +244,68 @@ __device__ float atomicAdd(float* address, float val)
 			}
 		}
 	}
+
+	__global__ void kernel_calculate_ring_centroids_scatter(float3* positions, pair<int,int>* edges, float3* centroids, int* neighbor_counts, int edge_count) {
+		int stride = thread_stride();
+		int offset = thread_offset();
+		for (int i = offset; i < edge_count; i += stride) {
+			pair<int, int> edge = edges[i];
+			if (edge.first > -1 && edge.second > -1) {
+				float3* centroid_a = centroids + edge.first;
+				float3* centroid_b = centroids + edge.second;
+				float3 pa = positions[edge.first];
+				float3 pb = positions[edge.second];
+				atomicAdd(&centroid_a->x, pb.x);
+				atomicAdd(&centroid_a->y, pb.y);
+				atomicAdd(&centroid_a->z, pb.z);
+				atomicAdd(&centroid_b->x, pa.x);
+				atomicAdd(&centroid_b->y, pa.y);
+				atomicAdd(&centroid_b->z, pa.z);
+				atomicAdd(neighbor_counts + edge.first, 1);
+				atomicAdd(neighbor_counts + edge.second, 1);
+			}
+		}
+	}
+
+	void find_edges(pair<int,int>* pairs, int* faces, int* face_indices, int* face_sizes,int face_count,int face_index_count) {
+		//int stride = thread_stride();
+		//int offset = thread_offset();
+		int face = 0; //face of the first vertex in the pair
+		int face_start = faces[0];
+		int next_face_start = faces[0] + face_sizes[0];
+		for (int i = 0; i+1 < face_index_count; i++) {
+			//check current face and next face
+			if (next_face_start <= i) {
+				++face;
+				face_start = faces[face];
+				next_face_start = face_start + face_sizes[face];
+			}
+			int first, secound;
+			//check for edge
+			if (next_face_start == i+1) {
+				secound = face_indices[face_start];
+				first = face_indices[i];
+			}
+			else {
+				first = face_indices[i];
+				secound = face_indices[i + 1];
+			}
+
+			if (first > secound) {
+				pairs[i] = pair<int, int>(secound, first);
+			}
+			else {
+				pairs[i] = pair<int, int>(first, secound);
+			}
+		}
+	}
+
+	struct PairLessThan {
+		__device__  __host__ bool operator()(const pair<int, int>& a, const pair<int, int>& b) {
+			return a.first < b.first || (a.first == b.first && a.second < b.second);
+		}
+	};
+
 
 	void normals_by_area_weight_he_cuda(HalfedgeMesh* mesh, int threads,int blocks, timing_struct& timing) {
 		mesh->normals.resize(mesh->vertices.size()); //prepare vector for normals
@@ -368,13 +432,21 @@ __device__ float atomicAdd(float* address, float val)
 		auto stop = std::chrono::steady_clock::now();
 		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 		
+		std::vector<pair<int, int>> edges(faces_indices.size()-1,pair<int,int>(-2,-2));//max size == edgecount <= face_indices - 1
+		find_edges(edges.data(), mesh->faces.data(), mesh->face_indices.data(),
+				mesh->face_sizes.data(), mesh->faces.size(), mesh->face_indices.size());
+		thrust::device_vector<pair<int, int>> dev_edges = edges;
+		thrust::sort(dev_edges.begin(), dev_edges.end(), PairLessThan());
+		thrust::unique(dev_edges.begin(), dev_edges.end());
+		thrust::copy(dev_edges.begin(), dev_edges.end(), edges.begin());
 		cudaEvent_t cu_start, cu_stop;
 		cudaEventCreate(&cu_start);
 		cudaEventCreate(&cu_stop);
 		//run kernel
 		cudaEventRecord(cu_start);
-		kernel_calculate_ring_centroids_scatter<<<blocks, threads>>>(positions.data().get(), faces.data().get(),
-				faces_indices.data().get(), faces_sizes.data().get(), centroids.data().get(),neighbor_count.data().get(), faces.size());
+		//kernel_calculate_ring_centroids_scatter_no_borders<<<blocks, threads>>>(positions.data().get(), faces.data().get(),
+		//		faces_indices.data().get(), faces_sizes.data().get(), centroids.data().get(),neighbor_count.data().get(), faces.size());
+		kernel_calculate_ring_centroids_scatter<<<blocks, threads>>>(positions.data().get(),dev_edges.data().get(), centroids.data().get(),neighbor_count.data().get(), dev_edges.size());
 		cudaEventRecord(cu_stop);
 		cudaEventSynchronize(cu_stop);
 		timing.kernel_execution_time_a = cuda_elapsed_time(cu_start, cu_stop);
