@@ -11,10 +11,8 @@ namespace ab {
 
 		do {
 			assumed = old;
-			old = _InterlockedCompareExchange(address_as_ull,
-				assumed, reinterpret_cast<long&>(reinterpret_cast<float&>(assumed))+val);
-
-			// Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
+			float new_value = reinterpret_cast<float&>(assumed) + val;
+			old = _InterlockedCompareExchange(address_as_ull, reinterpret_cast<long&>(new_value), assumed);
 		} while (assumed != old);
 
 		return reinterpret_cast<float&>(old);
@@ -28,10 +26,8 @@ namespace ab {
 
 		do {
 			assumed = old;
-			old = _InterlockedCompareExchange(address_as_ull,
-				assumed, reinterpret_cast<long&>(reinterpret_cast<float&>(assumed)) + val);
-
-			// Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
+			int new_value = reinterpret_cast<int&>(assumed) + val;
+			old = _InterlockedCompareExchange(address_as_ull, reinterpret_cast<long&>(new_value),assumed);
 		} while (assumed != old);
 
 		return  reinterpret_cast<int&>(old);
