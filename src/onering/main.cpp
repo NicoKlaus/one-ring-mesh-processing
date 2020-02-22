@@ -47,6 +47,8 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 			std::cerr << "failed creating file: " << hes_fn << '\n';
 		}
 	}
+
+	//CPU based Normals
 	{
 		std::cout << "calculate normals with cpu (halfedge mesh)\n";
 		auto time = ab::perf::execution_time([&]{normals_by_area_weight_he_cpu(&he_mesh,8);});
@@ -67,6 +69,8 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 			std::cerr << "failed creating file: " << hes_fn << '\n';
 		}
 	}
+
+	//CUDA based normals
 	{
 		std::cout << "calculate normals with cuda (gather)\n";
 		he_mesh.normals.clear();
@@ -89,6 +93,28 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 			std::cerr << "failed creating file: " << hes_fn << '\n';
 		}
 	}
+
+	//CPU based centroids
+	{
+		std::cout << "calculate one ring centroids with cpu (gather)\n";
+		vector<float3> centroids;
+		auto time = ab::perf::execution_time([&] {centroids_he_cpu(&he_mesh, centroids); });
+		std::cout << "calculated centroids in " << time.count() << "ns\n";
+		string he_centroid_fn = fn + "-he-cpu-centroids.ply";
+		std::cout << "creating file: " << he_centroid_fn << '\n';
+		write_pointcloud(he_centroid_fn, centroids.data(), centroids.size());
+	}
+	{
+		std::cout << "calculate one ring centroids with cpu (scatter)\n";
+		vector<float3> centroids;
+		auto time = ab::perf::execution_time([&] {centroids_sm_cpu(&mesh, centroids); });
+		std::cout << "calculated centroids in " << time.count() << "ns\n";
+		string sm_centroid_fn = fn + "-sm-cpu-centroids.ply";
+		std::cout << "creating file: " << sm_centroid_fn << '\n';
+		write_pointcloud(sm_centroid_fn, centroids.data(), centroids.size());
+	}
+
+	//CUDA based centroids
 	{
 		std::cout << "calculate one ring centroids with cuda (gather)\n";
 		vector<float3> centroids;
