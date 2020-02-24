@@ -2,19 +2,21 @@
 #include <vector>
 #include <string>
 #include <cuda_runtime.h>
+#include <thrust/system/cuda/experimental/pinned_allocator.h>
+#include <onering_base.hpp>
 
 namespace ab {
 
 struct SimpleMesh
 {
 	//vertice attribute arrays
-	std::vector<float3> positions; //contains the vertex positions
-	std::vector<float3> normals; //contains vertex normals
+	attribute_vector<float3> positions; //contains the vertex positions
+	attribute_vector<float3> normals; //contains vertex normals
 	//connectivity
 	//std::vector<std::vector<int>> faces_vector; //list of indices
-	std::vector<int> faces; //elements point to the start index  of a face in face_indices
-	std::vector<int> face_indices; //list of face indices, a face begins at face_indices[faces[i]] and ends at face_indices[faces[i]+face_size[i]-1]
-	std::vector<int> face_sizes; //size of every face
+	attribute_vector<int> faces; //elements point to the start index  of a face in face_indices
+	attribute_vector<int> face_indices; //list of face indices, a face begins at face_indices[faces[i]] and ends at face_indices[faces[i]+face_size[i]-1]
+	attribute_vector<int> face_sizes; //size of every face
 
 	inline bool has_normals() const {
 		return normals.size();

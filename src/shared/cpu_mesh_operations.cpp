@@ -257,7 +257,8 @@ namespace ab {
 		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 	}
 
-	void centroids_he_cpu(HalfedgeMesh* mesh, std::vector<float3>& centroids_array, size_t threads, timing_struct& timing) {
+	void centroids_he_cpu(HalfedgeMesh* mesh, attribute_vector<float3>& centroids_array, size_t threads, timing_struct& timing) {
+		centroids_array.clear();
 		centroids_array.resize(mesh->vertices.size());
 		timing.block_size = threads;
 		timing.grid_size = 1;
@@ -277,7 +278,7 @@ namespace ab {
 		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 	}
 
-	void centroids_sm_cpu(SimpleMesh* mesh, std::vector<float3>& centroids_array, size_t threads, timing_struct& timing) {
+	void centroids_sm_cpu(SimpleMesh* mesh, attribute_vector<float3>& centroids_array, size_t threads, timing_struct& timing) {
 		centroids_array.resize(mesh->positions.size());
 		timing.block_size = threads;
 		timing.grid_size = 1;

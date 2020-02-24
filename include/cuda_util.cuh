@@ -6,7 +6,7 @@ namespace ab {
 	__host__ void optimal_configuration(int& blocks, int& threads, const T& kernel) {
 		int grid_size = 0;
 		int block_size = 64;
-		cudaDeviceGetAttribute(&grid_size, cudaDevAttrMultiProcessorCount);
+		cudaDeviceGetAttribute(&grid_size, cudaDevAttrMultiProcessorCount,0);
 
 		//cudaOccupancyMaxPotentialBlockSize(&grid_size, &block_size, kernel, 0, 256);
 		blocks = grid_size;

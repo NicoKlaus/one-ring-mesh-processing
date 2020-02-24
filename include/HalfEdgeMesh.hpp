@@ -1,6 +1,7 @@
 #pragma once
 #include <SimpleMesh.hpp>
 #include <vector>
+#include <onering_base.hpp>
 
 
 namespace ab {
@@ -25,10 +26,10 @@ namespace ab {
 	};
 
 	struct HalfedgeMesh {
-		std::vector<Vertex> vertices;
-		std::vector<float3> normals;
-		std::vector<HalfEdge> half_edges;
-		std::vector<Loop> loops;
+		attribute_vector<Vertex> vertices;
+		attribute_vector<float3> normals;
+		attribute_vector<HalfEdge> half_edges;
+		attribute_vector<Loop> loops;
 	};
 
 	inline int vertex_count_of(const HalfedgeMesh& mesh) {

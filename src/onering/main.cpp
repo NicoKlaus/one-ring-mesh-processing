@@ -97,7 +97,7 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	//CPU based centroids
 	{
 		std::cout << "calculate one ring centroids with cpu (gather)\n";
-		vector<float3> centroids;
+		attribute_vector<float3> centroids;
 		auto time = ab::perf::execution_time([&] {centroids_he_cpu(&he_mesh, centroids); });
 		std::cout << "calculated centroids in " << time.count() << "ns\n";
 		string he_centroid_fn = fn + "-he-cpu-centroids.ply";
@@ -106,7 +106,7 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	}
 	{
 		std::cout << "calculate one ring centroids with cpu (scatter)\n";
-		vector<float3> centroids;
+		attribute_vector<float3> centroids;
 		auto time = ab::perf::execution_time([&] {centroids_sm_cpu(&mesh, centroids); });
 		std::cout << "calculated centroids in " << time.count() << "ns\n";
 		string sm_centroid_fn = fn + "-sm-cpu-centroids.ply";
@@ -117,7 +117,7 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	//CUDA based centroids
 	{
 		std::cout << "calculate one ring centroids with cuda (gather)\n";
-		vector<float3> centroids;
+		attribute_vector<float3> centroids;
 		auto time = ab::perf::execution_time([&]{centroids_he_cuda(&he_mesh,centroids); });
 		std::cout << "calculated centroids in " << time.count() << "ns\n";
 		string he_centroid_fn = fn + "-he-cuda-centroids.ply";
@@ -126,7 +126,7 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	}
 	{
 		std::cout << "calculate one ring centroids with cuda (scatter)\n";
-		vector<float3> centroids;
+		attribute_vector<float3> centroids;
 		auto time = ab::perf::execution_time([&] {centroids_sm_cuda(&mesh, centroids); });
 		std::cout << "calculated centroids in " << time.count() << "ns\n";
 		string sm_centroid_fn = fn + "-sm-cuda-centroids.ply";
@@ -274,7 +274,7 @@ int main(int argc, char* argv[]){
 		cout << "selected algorithm: " << algo_name << '\n';
 		std::vector<timing_struct> timings;
 		for (int i = 0; i < runs; ++i) {
-			cout << "start run " << i << "/" << runs << " ...";
+			cout << "start run " << i+1 << "/" << runs << " ...";
 			(*funct)();
 			cout << "finished in "<< funct->timings.total_execution_time() << " ns\n";
 			timings.push_back(funct->timings);
