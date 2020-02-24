@@ -287,6 +287,7 @@ int main(int argc, char* argv[]){
 				<< "data_upload_time=" << timing.data_upload_time << "\n"
 				<< "kernel_execution_time_a=" << timing.kernel_execution_time_a << "\n"
 				<< "kernel_execution_time_b=" << timing.kernel_execution_time_b << "\n"
+				<< "kernel_execution_time_prepare=" << timing.kernel_execution_time_prepare << "\n"
 				<< "data_download_time=" << timing.data_download_time << "\n"
 				<< "vertex_count=" << vert_count << "\n"
 				<< "face_count=" << face_count << "\n"

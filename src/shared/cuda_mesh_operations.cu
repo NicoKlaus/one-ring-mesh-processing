@@ -1,4 +1,5 @@
 #include <cuda_mesh_operations.hpp>
+#include <cuda_util.cuh>
 #include <thrust/device_vector.h>
 #include <thrust/sort.h>
 #include <thrust/unique.h>
@@ -17,75 +18,6 @@ __device__ int thread_offset(){
 __device__ int thread_stride(){
 	return blockDim.x * gridDim.x;
 }
-
-template <typename T>
-__host__ void optimal_configuration(int& blocks, int& threads,const T& kernel) {
-	int grid_size = 0;
-	int block_size = 0;
-	cudaOccupancyMaxPotentialBlockSize(&grid_size, &block_size,kernel, 0, 256);
-	blocks = grid_size;
-	threads = block_size;
-}
-
-__host__ size_t cuda_elapsed_time(cudaEvent_t& cu_start, cudaEvent_t& cu_stop) {
-	float exec_time;
-	cudaEventElapsedTime(&exec_time, cu_start, cu_stop);
-	return static_cast<size_t>(exec_time * 1000000);
-}
-
-#if __CUDA_ARCH__ < 600
-__device__ int atomicAdd(int* address, int val)
-{
-	int old = *address, assumed;
-
-	do {
-		assumed = old;
-		old = atomicCAS(address, assumed,val + assumed);
-	} while (assumed != old);
-
-	return old;
-}
-#endif
-
-#if __CUDA_ARCH__ < 600
-__device__ double atomicAdd(double* address, double val)
-{
-    unsigned long long int* address_as_ull =
-                              (unsigned long long int*)address;
-    unsigned long long int old = *address_as_ull, assumed;
-
-    do {
-        assumed = old;
-        old = atomicCAS(address_as_ull, assumed,
-                        __double_as_longlong(val +
-                               __longlong_as_double(assumed)));
-
-    // Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
-    } while (assumed != old);
-
-    return __longlong_as_double(old);
-}
-#endif
-
-#if __CUDA_ARCH__ < 600
-__device__ float atomicAdd(float* address, float val)
-{
-	unsigned int* address_as_ull =
-		(unsigned int*)address;
-	unsigned int old = *address_as_ull, assumed;
-
-	do {
-		assumed = old;
-		old = atomicCAS(address_as_ull, assumed,
-			__float_as_int(val +
-				__int_as_float(assumed)));
-
-		// Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
-	} while (assumed != old);
-
-	return __int_as_float(old);
-}
-#endif
 
 	__global__ void kernel_train() {
 		
@@ -267,15 +199,15 @@ __device__ float atomicAdd(float* address, float val)
 		}
 	}
 
-	void find_edges(pair<int,int>* pairs, int* faces, int* face_indices, int* face_sizes,int face_count,int face_index_count) {
-		//int stride = thread_stride();
-		//int offset = thread_offset();
+	__global__ void kernel_find_edges(pair<int,int>* pairs, int* faces, int* face_indices, int* face_sizes,int face_count,int face_index_count) {
+		int stride = thread_stride();
+		int offset = thread_offset();
 		int face = 0; //face of the first vertex in the pair
 		int face_start = faces[0];
 		int next_face_start = faces[0] + face_sizes[0];
-		for (int i = 0; i+1 < face_index_count; i++) {
+		for (int i = offset; i+1 < face_index_count; i+=stride) {
 			//check current face and next face
-			if (next_face_start <= i) {
+			while (next_face_start <= i) {
 				++face;
 				face_start = faces[face];
 				next_face_start = face_start + face_sizes[face];
@@ -429,24 +361,29 @@ __device__ float atomicAdd(float* address, float val)
 		thrust::device_vector<int> faces_sizes = mesh->face_sizes;
 		thrust::device_vector<float3> centroids = centroids_array;
 		thrust::device_vector<int> neighbor_count(mesh->positions.size(),0);
+		thrust::device_vector<pair<int, int>> edges(faces_indices.size() - 1, pair<int, int>(-1, -1));//max size == edgecount <= face_indices - 1
 		auto stop = std::chrono::steady_clock::now();
 		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 		
-		std::vector<pair<int, int>> edges(faces_indices.size()-1,pair<int,int>(-2,-2));//max size == edgecount <= face_indices - 1
-		find_edges(edges.data(), mesh->faces.data(), mesh->face_indices.data(),
-				mesh->face_sizes.data(), mesh->faces.size(), mesh->face_indices.size());
-		thrust::device_vector<pair<int, int>> dev_edges = edges;
-		thrust::sort(dev_edges.begin(), dev_edges.end(), PairLessThan());
-		thrust::unique(dev_edges.begin(), dev_edges.end());
-		thrust::copy(dev_edges.begin(), dev_edges.end(), edges.begin());
+
 		cudaEvent_t cu_start, cu_stop;
 		cudaEventCreate(&cu_start);
 		cudaEventCreate(&cu_stop);
+		//prepare edge list
+		cudaEventRecord(cu_start);
+		kernel_find_edges<<<blocks,threads>>>(edges.data().get(), faces.data().get(), faces_indices.data().get(),
+				faces_sizes.data().get(), faces.size(), faces_indices.size());
+		thrust::sort(edges.begin(), edges.end(), PairLessThan());
+		thrust::unique(edges.begin(), edges.end());
+		cudaEventRecord(cu_stop);
+		cudaEventSynchronize(cu_stop);
+		timing.kernel_execution_time_prepare = cuda_elapsed_time(cu_start, cu_stop);
+
 		//run kernel
 		cudaEventRecord(cu_start);
 		//kernel_calculate_ring_centroids_scatter_no_borders<<<blocks, threads>>>(positions.data().get(), faces.data().get(),
 		//		faces_indices.data().get(), faces_sizes.data().get(), centroids.data().get(),neighbor_count.data().get(), faces.size());
-		kernel_calculate_ring_centroids_scatter<<<blocks, threads>>>(positions.data().get(),dev_edges.data().get(), centroids.data().get(),neighbor_count.data().get(), dev_edges.size());
+		kernel_calculate_ring_centroids_scatter<<<blocks, threads>>>(positions.data().get(),edges.data().get(), centroids.data().get(),neighbor_count.data().get(), edges.size());
 		cudaEventRecord(cu_stop);
 		cudaEventSynchronize(cu_stop);
 		timing.kernel_execution_time_a = cuda_elapsed_time(cu_start, cu_stop);

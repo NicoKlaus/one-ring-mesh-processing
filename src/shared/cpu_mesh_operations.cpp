@@ -1,5 +1,9 @@
 #include <cpu_mesh_operations.hpp>
 #include <intrin.h>
+#include <utility>
+#include <algorithm>
+
+using namespace std;
 
 namespace ab {
 
@@ -136,7 +140,7 @@ namespace ab {
 		}
 	}
 
-	__global__ void cpu_kernel_calculate_ring_centroids_scatter(float3* positions, int* faces, int* face_indices,
+	void cpu_kernel_calculate_ring_centroids_scatter_no_borders(float3* positions, int* faces, int* face_indices,
 				int* face_sizes, float3* centroids, int* duped_neighbor_counts, int face_count,int stride,int offset) {
 		for (int i = offset; i < face_count; i += stride) {
 			int base_index = faces[i];
@@ -156,6 +160,64 @@ namespace ab {
 			}
 		}
 	}
+
+	void cpu_kernel_calculate_ring_centroids_scatter(float3* positions, pair<int, int>* edges, float3* centroids, int* neighbor_counts, int edge_count,
+		int stride, int offset) {
+		for (int i = offset; i < edge_count; i += stride) {
+			pair<int, int> edge = edges[i];
+			if (edge.first > -1 && edge.second > -1) {
+				float3* centroid_a = centroids + edge.first;
+				float3* centroid_b = centroids + edge.second;
+				float3 pa = positions[edge.first];
+				float3 pb = positions[edge.second];
+				atomic_add(&centroid_a->x, pb.x);
+				atomic_add(&centroid_a->y, pb.y);
+				atomic_add(&centroid_a->z, pb.z);
+				atomic_add(&centroid_b->x, pa.x);
+				atomic_add(&centroid_b->y, pa.y);
+				atomic_add(&centroid_b->z, pa.z);
+				atomic_add(neighbor_counts + edge.first, 1);
+				atomic_add(neighbor_counts + edge.second, 1);
+			}
+		}
+	}
+
+	void find_edges(pair<int, int>* pairs, int* faces, int* face_indices, int* face_sizes, int face_count, int face_index_count) {
+		int face = 0; //face of the first vertex in the pair
+		int face_start = faces[0];
+		int next_face_start = faces[0] + face_sizes[0];
+		for (int i = 0; i + 1 < face_index_count; i++) {
+			//check current face and next face
+			if (next_face_start <= i) {
+				++face;
+				face_start = faces[face];
+				next_face_start = face_start + face_sizes[face];
+			}
+			int first, second;
+			//check for edge
+			if (next_face_start == i + 1) {
+				second = face_indices[face_start];
+				first = face_indices[i];
+			}
+			else {
+				first = face_indices[i];
+				second = face_indices[i + 1];
+			}
+
+			if (first > second) {
+				pairs[i] = pair<int, int>(second, first);
+			}
+			else {
+				pairs[i] = pair<int, int>(first, second);
+			}
+		}
+	}
+
+	struct PairLessThan {
+		bool operator()(const pair<int, int>& a, const pair<int, int>& b) {
+			return a.first < b.first || (a.first == b.first && a.second < b.second);
+		}
+	};
 
 	void normals_by_area_weight_he_cpu(HalfedgeMesh* mesh, int threads, timing_struct& timing) {
 		mesh->normals.resize(mesh->vertices.size());
@@ -181,8 +243,8 @@ namespace ab {
 		timing.block_size = threads;
 		timing.grid_size = 1;
 
-		auto start = std::chrono::steady_clock::now();
 		std::vector<std::thread> thread_list;
+		auto start = std::chrono::steady_clock::now();
 		for (int i = 0; i < threads; ++i) {
 			thread_list.emplace_back(std::thread(cpu_kernel_normals_by_area_weight_scatter, mesh->positions.data(), mesh->faces.data(),
 				mesh->face_indices.data(), mesh->face_sizes.data(), mesh->normals.data(),mesh->faces.size(), threads, i));
@@ -200,8 +262,8 @@ namespace ab {
 		timing.block_size = threads;
 		timing.grid_size = 1;
 
-		auto start = std::chrono::steady_clock::now();
 		std::vector<std::thread> thread_list;
+		auto start = std::chrono::steady_clock::now();
 		for (int i = 0; i < threads; ++i) {
 			thread_list.emplace_back(std::thread(cpu_kernel_calculate_ring_centroids_gather,mesh->vertices.data(), mesh->half_edges.data(), centroids_array.data(),
 				mesh->vertices.size(), threads, i));
@@ -225,11 +287,16 @@ namespace ab {
 		auto stop = std::chrono::steady_clock::now();
 		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 
-		start = std::chrono::steady_clock::now();
 		std::vector<std::thread> thread_list;
+		std::vector<std::pair<int, int>> edges(mesh->face_indices.size()-1, std::pair<int, int>(-1, -1));//max size == edgecount <= face_indices - 1
+		start = std::chrono::steady_clock::now();
+		find_edges(edges.data(), mesh->faces.data(), mesh->face_indices.data(), mesh->face_sizes.data(), mesh->faces.size(),
+				mesh->face_indices.size());
+		std::sort(edges.begin(), edges.end(), PairLessThan());
+		std::unique(edges.begin(), edges.end());
 		for (int i = 0; i < threads; ++i) {
-			thread_list.emplace_back(std::thread(cpu_kernel_calculate_ring_centroids_scatter, mesh->positions.data(), mesh->faces.data(),
-				mesh->face_indices.data(), mesh->face_sizes.data(), centroids_array.data(), neighbor_count.data(), mesh->faces.size(),
+			thread_list.emplace_back(std::thread(cpu_kernel_calculate_ring_centroids_scatter, mesh->positions.data(), edges.data(),
+				centroids_array.data(), neighbor_count.data(),edges.size(),
 				threads, i));;
 		}
 
