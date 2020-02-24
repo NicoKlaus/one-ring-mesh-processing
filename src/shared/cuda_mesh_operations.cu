@@ -35,10 +35,10 @@ __device__ int thread_stride(){
 		int stride = thread_stride();
 		int offset = thread_offset();
 		for (int i = offset; i < vec_size; i += stride) {
-			float fdiv = div[i];
-			vec[i].x /= fdiv;
-			vec[i].y /= fdiv;
-			vec[i].z /= fdiv;
+			float fdiv = 1.f/div[i];
+			vec[i].x *= fdiv;
+			vec[i].y *= fdiv;
+			vec[i].z *= fdiv;
 		}
 	}
 
@@ -46,10 +46,10 @@ __device__ int thread_stride(){
 		int stride = thread_stride();
 		int offset = thread_offset();
 		for (int i = offset; i < vec_size; i += stride) {
-			float fdiv = static_cast<float>(div[i]);
-			vec[i].x /= fdiv;
-			vec[i].y /= fdiv;
-			vec[i].z /= fdiv;
+			float fdiv = 1.f/static_cast<float>(div[i]);
+			vec[i].x *= fdiv;
+			vec[i].y *= fdiv;
+			vec[i].z *= fdiv;
 		}
 	}
 
