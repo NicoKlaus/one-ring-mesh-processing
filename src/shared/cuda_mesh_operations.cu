@@ -188,18 +188,18 @@ __device__ int thread_stride(){
 		}
 	}
 
-	__global__ void kernel_find_edges(pair<int,int>* pairs, int* faces, int* face_indices, int* face_sizes,int face_count,int face_index_count) {
+	__global__ void kernel_find_edges(pair<int,int>* pairs, int* faces, int* face_indices,int face_count,int face_index_count) {
 		int stride = thread_stride();
 		int offset = thread_offset();
 		int face = 0; //face of the first vertex in the pair
 		int face_start = faces[0];
-		int next_face_start = faces[0] + face_sizes[0];
+		int next_face_start = faces[1];
 		for (int i = offset; i+1 < face_index_count; i+=stride) {
 			//check current face and next face
 			while (next_face_start <= i) {
 				++face;
 				face_start = faces[face];
-				next_face_start = face_start + face_sizes[face];
+				next_face_start = faces[face+1];
 			}
 			int first, secound;
 			//check for edge
@@ -356,14 +356,12 @@ __device__ int thread_stride(){
 		thrust::device_vector<float3> positions(mesh->positions.size());
 		thrust::device_vector<int> faces(mesh->faces.size());
 		thrust::device_vector<int> faces_indices(mesh->face_indices.size());
-		thrust::device_vector<int> faces_sizes(mesh->face_sizes.size());
 		thrust::device_vector<float3> centroids(mesh->positions.size(), { 0,0,0 });
 		thrust::device_vector<int> neighbor_count(mesh->positions.size(), 0);
 		thrust::device_vector<pair<int, int>> edges(faces_indices.size() - 1, pair<int, int>(-1, -1));//max size == edgecount <= face_indices - 1
 		cudaMemcpyAsync(positions.data().get(), mesh->positions.data(), mesh->positions.size() * sizeof(float3), cudaMemcpyHostToDevice);
 		cudaMemcpyAsync(faces.data().get(), mesh->faces.data(), mesh->faces.size() * sizeof(int), cudaMemcpyHostToDevice);
 		cudaMemcpyAsync(faces_indices.data().get(), mesh->face_indices.data(), mesh->face_indices.size() * sizeof(int), cudaMemcpyHostToDevice);
-		cudaMemcpyAsync(faces_sizes.data().get(), mesh->face_sizes.data(), mesh->face_sizes.size() * sizeof(int), cudaMemcpyHostToDevice);
 		cudaDeviceSynchronize();
 		auto stop = std::chrono::steady_clock::now();
 		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
@@ -373,8 +371,7 @@ __device__ int thread_stride(){
 		cudaEventCreate(&cu_stop);
 		//prepare edge list
 		cudaEventRecord(cu_start);
-		kernel_find_edges<<<blocks,threads>>>(edges.data().get(), faces.data().get(), faces_indices.data().get(),
-				faces_sizes.data().get(), faces.size(), faces_indices.size());
+		kernel_find_edges<<<blocks,threads>>>(edges.data().get(), faces.data().get(), faces_indices.data().get(), faces.size(), faces_indices.size());
 		thrust::sort(edges.begin(), edges.end(), PairLessThan());
 		thrust::unique(edges.begin(), edges.end());
 		cudaEventRecord(cu_stop);
