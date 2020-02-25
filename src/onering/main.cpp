@@ -40,6 +40,14 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	create_he_mesh_from(he_mesh, mesh);
 
 
+	{
+		std::cout << "creating sorted mesh from he_mesh\n";
+		HalfedgeMesh sorted_he_mesh = he_mesh;
+		sort_mesh(sorted_he_mesh);
+		std::cout << "creating file: " << fn + "-sorted.ply" <<
+		write_mesh(sorted_he_mesh, fn+"-sorted.ply", true);
+	}
+
 	if (mesh_conversion_output){
 		string hes_fn = fn + "-he-to-simple.ply";
 		std::cout << "creating file: " << hes_fn << '\n';
@@ -162,8 +170,9 @@ int main(int argc, char* argv[]){
 			("threads", value<int>(), "threads per block, blocks and threads are determined automatically if ommited")
 			("blocks", value<int>(), "blocks in the grid, has no effect for cpu only algorithms, determined automatically if --threads ommited")
 			("runs", value<int>(), "=N ,run calculation N times for extensive time mesuring")
-			("time-log", value<string>(), "saves timings to file"),
-			("strip-attributes", value<bool>(), "removes all attributes from the mesh except positions and connectivity");
+			("time-log", value<string>(), "saves timings to file")
+			("strip-attributes", value<bool>(), "removes all attributes from the mesh except positions and connectivity")
+			("sort", value<bool>(), "sorts input mesh by veretx valenz");
 
 		variables_map vm;
 		store(parse_command_line(argc, argv, desc), vm);
@@ -174,6 +183,18 @@ int main(int argc, char* argv[]){
 		if (vm.count("help")) {
 			std::cout << desc << '\n';
 			return 0;
+		}
+		else if (vm.count("sort")) {
+			string out = vm["out"].as<string>();
+			string in = vm["in"].as<string>();
+			
+			HalfedgeMesh he_mesh;
+			cout << "reding file " << in << '\n';
+			read_mesh(he_mesh, in);
+			cout << "sorting mesh by valenz...\n";
+			sort_mesh(he_mesh);
+			cout << "creating file " << out << '\n';
+			write_mesh(he_mesh, out, true);
 		}
 		else if (vm.count("strip-attributes")) {
 			if (vm.count("out") && vm.count("in")) {

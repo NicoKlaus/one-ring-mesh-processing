@@ -63,10 +63,7 @@ __device__ int thread_stride(){
 			float3 point_a = positions[face_indices[base_index+(face_size-1)]];
 			float3 point_b = positions[face_indices[base_index]];
 			float3 edge_vector_ab = point_b-point_a;
-			float3 normal;
-			normal.x = 0.f;
-			normal.y = 0.f;
-			normal.z = 0.f;
+			float3 normal{ 0.f,0.f,0.f };
 			//circulate trough the rest of the face and calculate the normal
 			for (int j = 0;j< face_size;++j){
 				float3 point_c = positions[face_indices[base_index+((j+1)%face_size)]];

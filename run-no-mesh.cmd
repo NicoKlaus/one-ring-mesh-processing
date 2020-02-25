@@ -4,7 +4,7 @@ SET OPROC=build\Release\onering.exe
 REM SET OPROC=echo
 SET CPU_ALGORITHMS=normals-gather-cpu normals-scatter-cpu centroids-gather-cpu centroids-scatter-cpu
 SET CUDA_ALGORITHMS=normals-gather-cuda normals-scatter-cuda centroids-gather-cuda centroids-scatter-cuda
-SET CUDA_BLOCK_CONFS=4 8 16
+SET CUDA_BLOCK_CONFS=
 SET DIR_OUT=%2
 SET RUNS=20
 

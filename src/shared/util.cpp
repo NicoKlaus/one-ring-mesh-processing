@@ -132,4 +132,69 @@ namespace ab {
 		return write_mesh(s_mesh, file, binary_mode);
 	}
 
+	template <typename T>
+	struct LessThanPairSecond {
+		bool operator()(pair<T,T> a,pair<T,T> b) {
+			return a.second < b.second;
+		}
+	};
+	template <typename T>
+	struct LessThanPairFirst {
+		bool operator()(pair<T, T> a, pair<T, T> b) {
+			return a.first < b.first;
+		}
+	};
+
+	void sort_mesh(HalfedgeMesh &mesh) {
+		attribute_vector<pair<int,int>> vertices_by_valence(mesh.vertices.size());
+		for (int i = 0; i < mesh.vertices.size(); ++i) {
+			vertices_by_valence[i].first = i;
+			//find valenz
+			int valenz = 0;
+			int he = mesh.vertices[i].he;
+			if (he >= 0) {
+				do {
+					he = mesh.half_edges[mesh.half_edges[he].inv].next;
+					++valenz;
+				} while (he != mesh.vertices[i].he);
+			}
+			vertices_by_valence[i].second = valenz;
+		}
+		std::sort(vertices_by_valence.begin(), vertices_by_valence.end(), LessThanPairSecond<int>());
+
+		attribute_vector<pair<int, int>> permutation(vertices_by_valence.size());
+		for (int i = 0; i < vertices_by_valence.size(); ++i) {
+			permutation[i].first = vertices_by_valence[i].first; //old index
+			permutation[i].second = i; //new index
+		}
+
+		//permutate vertices
+		attribute_vector<Vertex> vertices = mesh.vertices;
+		for (int i = 0; i < vertices_by_valence.size(); ++i) {
+			mesh.vertices[i] = vertices[vertices_by_valence[i].first];
+		}
+
+		//fix halfedges
+		sort(permutation.begin(), permutation.end(), LessThanPairFirst<int>());
+		for (int i = 0; i < mesh.half_edges.size(); ++i) {
+			mesh.half_edges[i].origin = permutation[mesh.half_edges[i].origin].second;
+		}
+
+
+		//cut orphaned vertices with valenz == 0
+		int valid_valenz_index = 0;
+		while (valid_valenz_index < vertices_by_valence.size()) {
+			if (vertices_by_valence[valid_valenz_index].second != 0) {
+				break;
+			}
+			valid_valenz_index++;
+		}
+		
+		vertices = mesh.vertices;
+		mesh.vertices.resize(vertices.size() - valid_valenz_index);
+		copy(vertices.begin() + valid_valenz_index, vertices.end(), mesh.vertices.begin());
+		for (int i = 0; i < mesh.half_edges.size(); ++i) {
+			mesh.half_edges[i].origin-= valid_valenz_index;
+		}
+	}
 }
