@@ -101,12 +101,12 @@ __device__ int thread_stride(){
 				}
 				float3 point_c = vertices[half_edges[halfedge.inv].origin].position;
 				float3 point_a = vertices[half_edges[halfedge.prev].origin].position;
-				
+				//float3 point_b = vert.position;
 				float3 edge_vector_ab = vert.position - point_a;
 				float3 edge_vector_bc = point_c - vert.position;
 				normal += normalized(cross3df(edge_vector_ab, edge_vector_bc));
 
-				he = half_edges[half_edges[he].inv].next;
+				he = half_edges[halfedge.inv].next;
 			} while (he != vert.he);
 			normals[i] = normalized(normal);
 		}
@@ -171,7 +171,7 @@ __device__ int thread_stride(){
 		int offset = thread_offset();
 		for (int i = offset; i < edge_count; i += stride) {
 			pair<int, int> edge = edges[i];
-			if (edge.first > -1 && edge.second > -1) {
+			if (edge.first > -1) {
 				float3* centroid_a = centroids + edge.first;
 				float3* centroid_b = centroids + edge.second;
 				float3 pa = positions[edge.first];
@@ -188,35 +188,31 @@ __device__ int thread_stride(){
 		}
 	}
 
-	__global__ void kernel_find_edges(pair<int,int>* pairs, int* faces, int* face_indices,int face_count,int face_index_count) {
+	__global__ void kernel_find_edges(pair<int,int>* pairs, int* faces, int* face_indices,int face_count) {
 		int stride = thread_stride();
 		int offset = thread_offset();
-		int face = 0; //face of the first vertex in the pair
-		int face_start = faces[0];
-		int next_face_start = faces[1];
-		for (int i = offset; i+1 < face_index_count; i+=stride) {
-			//check current face and next face
-			while (next_face_start <= i) {
-				++face;
-				face_start = faces[face];
-				next_face_start = faces[face+1];
-			}
-			int first, secound;
-			//check for edge
-			if (next_face_start == i+1) {
-				secound = face_indices[face_start];
-				first = face_indices[i];
-			}
-			else {
-				first = face_indices[i];
-				secound = face_indices[i + 1];
-			}
 
-			if (first > secound) {
-				pairs[i] = pair<int, int>(secound, first);
-			}
-			else {
-				pairs[i] = pair<int, int>(first, secound);
+		for (int i = offset; i+1<face_count; i += stride) {
+			int face_start = faces[i];
+			int face_end = faces[i + 1];
+			for (int j = face_start; j < face_end; ++j) {
+				int first, second;
+				//check for edge
+				if (face_end == j + 1) {
+					second = face_indices[face_start];
+					first = face_indices[j];
+				}
+				else {
+					first = face_indices[j];
+					second = face_indices[j + 1];
+				}
+
+				if (first > second) {
+					pairs[j] = pair<int, int>(second, first);
+				}
+				else {
+					pairs[j] = pair<int, int>(first, second);
+				}
 			}
 		}
 	}
@@ -228,13 +224,14 @@ __device__ int thread_stride(){
 	};
 
 
-	void normals_by_area_weight_he_cuda(HalfedgeMesh* mesh, int threads,int blocks, timing_struct& timing) {
+	void normals_he_cuda(HalfedgeMesh* mesh, int threads,int blocks, timing_struct& timing) {
 		mesh->normals.resize(mesh->vertices.size()); //prepare vector for normals
 		if (threads == 0) optimal_configuration(blocks, threads, kernel_calculate_normals_gather);
 		timing.block_size = threads;
 		timing.grid_size = blocks;
+		std::chrono::steady_clock::time_point start, stop, pstart, pstop;
 
-		auto start = std::chrono::steady_clock::now(); //upload time
+		start = std::chrono::steady_clock::now(); //upload time
 		thrust::device_vector<HalfEdge> half_edges(mesh->half_edges.size());
 		thrust::device_vector<Vertex> vertices(mesh->vertices.size());
 		thrust::device_vector<Loop> loops(mesh->loops.size());
@@ -242,19 +239,22 @@ __device__ int thread_stride(){
 		cudaMemcpyAsync(half_edges.data().get(), mesh->half_edges.data(), mesh->half_edges.size() * sizeof(HalfEdge), cudaMemcpyHostToDevice);
 		cudaMemcpyAsync(vertices.data().get(), mesh->vertices.data(), mesh->vertices.size() * sizeof(Vertex), cudaMemcpyHostToDevice);
 		cudaMemcpyAsync(loops.data().get(), mesh->loops.data(), mesh->loops.size() * sizeof(Loop), cudaMemcpyHostToDevice);
-		auto stop = std::chrono::steady_clock::now();
+		stop = std::chrono::steady_clock::now();
 		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 		//setup timer
 		cudaEvent_t cu_start, cu_stop;
 		cudaEventCreate(&cu_start);
 		cudaEventCreate(&cu_stop);
 		//kernel launch
+		pstart = std::chrono::steady_clock::now();
 		cudaEventRecord(cu_start);
 		kernel_calculate_normals_gather<<<blocks,threads>>>(vertices.data().get(), 
 				half_edges.data().get(),loops.data().get(), normals.data().get(), vertices.size());
 		cudaEventRecord(cu_stop);
 		cudaEventSynchronize(cu_stop);
+		pstop = std::chrono::steady_clock::now();
 		timing.kernel_execution_time_a = cuda_elapsed_time(cu_start, cu_stop);
+		timing.processing_time = std::chrono::duration_cast<std::chrono::nanoseconds>(pstop - pstart).count();
 		cudaEventDestroy(cu_start);
 		cudaEventDestroy(cu_stop);
 
@@ -265,13 +265,14 @@ __device__ int thread_stride(){
 	}
 
 	/// normals from a simple mesh
-	void normals_by_area_weight_sm_cuda(SimpleMesh* mesh,int threads,int blocks, timing_struct& timing) {
+	void normals_sm_cuda(SimpleMesh* mesh,int threads,int blocks, timing_struct& timing) {
 		mesh->normals.resize(mesh->positions.size());
 		if (threads == 0) optimal_configuration(blocks, threads, kernel_calculate_normals_scatter);
 		timing.block_size = threads;
 		timing.grid_size = blocks;
+		std::chrono::steady_clock::time_point start, stop, pstart, pstop;
 
-		auto start = std::chrono::steady_clock::now(); //upload time
+		start = std::chrono::steady_clock::now(); //upload time
 		thrust::device_vector<float3> positions(mesh->positions);
 		thrust::device_vector<int> faces(mesh->faces);
 		thrust::device_vector<int> face_indices(mesh->face_indices);
@@ -279,13 +280,14 @@ __device__ int thread_stride(){
 		cudaMemcpyAsync(positions.data().get(), mesh->positions.data(), mesh->positions.size() * sizeof(float3), cudaMemcpyHostToDevice);
 		cudaMemcpyAsync(faces.data().get(), mesh->faces.data(), mesh->faces.size() * sizeof(int), cudaMemcpyHostToDevice);
 		cudaMemcpyAsync(face_indices.data().get(), mesh->face_indices.data(), mesh->face_indices.size() * sizeof(int), cudaMemcpyHostToDevice);
-		auto stop = std::chrono::steady_clock::now();
+		stop = std::chrono::steady_clock::now();
 		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 		
 		cudaEvent_t cu_start, cu_stop;
 		cudaEventCreate(&cu_start);
 		cudaEventCreate(&cu_stop);
 		//run kernel
+		pstart = std::chrono::steady_clock::now();
 		cudaEventRecord(cu_start);
 		kernel_calculate_normals_scatter<<<blocks, threads>>>(positions.data().get(), faces.data().get(), face_indices.data().get(), normals.data().get(), faces.size());
 		cudaEventRecord(cu_stop);
@@ -296,8 +298,9 @@ __device__ int thread_stride(){
 		kernel_normalize_vectors<<<blocks, threads>>>(normals.data().get(),normals.size());
 		cudaEventRecord(cu_stop);
 		cudaEventSynchronize(cu_stop);
+		pstop = std::chrono::steady_clock::now();
 		timing.kernel_execution_time_b = cuda_elapsed_time(cu_start, cu_stop);
-
+		timing.processing_time = std::chrono::duration_cast<std::chrono::nanoseconds>(pstop - pstart).count();
 		cudaEventDestroy(cu_start);
 		cudaEventDestroy(cu_stop);
 
@@ -313,8 +316,9 @@ __device__ int thread_stride(){
 		if (threads == 0) optimal_configuration(blocks, threads, kernel_calculate_ring_centroids_gather);
 		timing.block_size = threads;
 		timing.grid_size = blocks;
+		std::chrono::steady_clock::time_point start, stop, pstart, pstop;
 
-		auto start = std::chrono::steady_clock::now();
+		start = std::chrono::steady_clock::now();
 		thrust::device_vector<HalfEdge> half_edges(mesh->half_edges.size());
 		thrust::device_vector<Vertex> vertices(mesh->vertices.size());
 		thrust::device_vector<Loop> loops(mesh->loops.size());
@@ -322,19 +326,22 @@ __device__ int thread_stride(){
 		cudaMemcpyAsync(half_edges.data().get(), mesh->half_edges.data(), mesh->half_edges.size() * sizeof(HalfEdge), cudaMemcpyHostToDevice);
 		cudaMemcpyAsync(vertices.data().get(), mesh->vertices.data(), mesh->vertices.size() * sizeof(Vertex), cudaMemcpyHostToDevice);
 		cudaMemcpyAsync(loops.data().get(), mesh->loops.data(), mesh->loops.size() * sizeof(Loop), cudaMemcpyHostToDevice);
-		auto stop = std::chrono::steady_clock::now();
+		stop = std::chrono::steady_clock::now();
 		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 		//create events
 		cudaEvent_t cu_start, cu_stop;
 		cudaEventCreate(&cu_start);
 		cudaEventCreate(&cu_stop);
 		//launch kernel
+		pstart = std::chrono::steady_clock::now();
 		cudaEventRecord(cu_start);
 		kernel_calculate_ring_centroids_gather<<<blocks, threads>>>(vertices.data().get(), half_edges.data().get(), centroids.data().get(), vertices.size());
 		cudaEventRecord(cu_stop);
 		cudaEventSynchronize(cu_stop);
+		pstop = std::chrono::steady_clock::now();
 		timing.kernel_execution_time_a = cuda_elapsed_time(cu_start, cu_stop);
-		
+		timing.processing_time = std::chrono::duration_cast<std::chrono::nanoseconds>(pstop - pstart).count();
+
 		cudaEventDestroy(cu_start);
 		cudaEventDestroy(cu_stop);
 
@@ -350,9 +357,9 @@ __device__ int thread_stride(){
 		if (threads == 0) optimal_configuration(blocks, threads, kernel_calculate_ring_centroids_scatter);
 		timing.block_size = threads;
 		timing.grid_size = blocks;
-
-		auto start = std::chrono::steady_clock::now();
-		
+		std::chrono::steady_clock::time_point start, stop, pstart, pstop;
+		//Data Upload Phase
+		start = std::chrono::steady_clock::now();
 		thrust::device_vector<float3> positions(mesh->positions.size());
 		thrust::device_vector<int> faces(mesh->faces.size());
 		thrust::device_vector<int> faces_indices(mesh->face_indices.size());
@@ -363,22 +370,34 @@ __device__ int thread_stride(){
 		cudaMemcpyAsync(faces.data().get(), mesh->faces.data(), mesh->faces.size() * sizeof(int), cudaMemcpyHostToDevice);
 		cudaMemcpyAsync(faces_indices.data().get(), mesh->face_indices.data(), mesh->face_indices.size() * sizeof(int), cudaMemcpyHostToDevice);
 		cudaDeviceSynchronize();
-		auto stop = std::chrono::steady_clock::now();
+		stop = std::chrono::steady_clock::now();
 		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 
+
+		//Processing phase
 		cudaEvent_t cu_start, cu_stop;
 		cudaEventCreate(&cu_start);
 		cudaEventCreate(&cu_stop);
+
 		//prepare edge list
 		cudaEventRecord(cu_start);
-		kernel_find_edges<<<blocks,threads>>>(edges.data().get(), faces.data().get(), faces_indices.data().get(), faces.size(), faces_indices.size());
-		thrust::sort(edges.begin(), edges.end(), PairLessThan());
-		thrust::unique(edges.begin(), edges.end());
+		kernel_find_edges<<<blocks,threads>>>(edges.data().get(), faces.data().get(), faces_indices.data().get(), faces.size());
 		cudaEventRecord(cu_stop);
 		cudaEventSynchronize(cu_stop);
 		timing.kernel_execution_time_prepare = cuda_elapsed_time(cu_start, cu_stop);
 
+		std::chrono::steady_clock::time_point clstop;
+		start = std::chrono::steady_clock::now();
+		thrust::sort(edges.begin(), edges.end(), PairLessThan());
+		stop = std::chrono::steady_clock::now();
+		timing.sorting_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+		start = std::chrono::steady_clock::now();
+		thrust::unique(edges.begin(), edges.end());
+		stop = std::chrono::steady_clock::now();
+		timing.unique_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+
 		//run kernel
+		pstart = std::chrono::steady_clock::now();
 		cudaEventRecord(cu_start);
 		//kernel_calculate_ring_centroids_scatter_no_borders<<<blocks, threads>>>(positions.data().get(), faces.data().get(),
 		//		faces_indices.data().get(), faces_sizes.data().get(), centroids.data().get(),neighbor_count.data().get(), faces.size());
@@ -391,11 +410,12 @@ __device__ int thread_stride(){
 		kernel_divide<<<blocks, threads>>>(centroids.data().get(), neighbor_count.data().get(), centroids.size());
 		cudaEventRecord(cu_stop);
 		cudaEventSynchronize(cu_stop);
+		pstop = std::chrono::steady_clock::now();
 		timing.kernel_execution_time_b = cuda_elapsed_time(cu_start, cu_stop);
-
+		timing.processing_time = std::chrono::duration_cast<std::chrono::nanoseconds>(pstop - pstart).count();
 		cudaEventDestroy(cu_start);
 		cudaEventDestroy(cu_stop);
-
+		//copy back phase
 		start = std::chrono::steady_clock::now();
 		thrust::copy(centroids.begin(), centroids.end(), centroids_array.begin());
 		stop = std::chrono::steady_clock::now();

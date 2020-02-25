@@ -34,20 +34,20 @@ namespace ab {
 		case PM_SCATTER: {
 			SimpleMesh* mesh = reinterpret_cast<SimpleMesh*>(mesh_pointer);
 			if (proc_dev == PD_CPU) {
-				normals_by_area_weight_sm_cpu(mesh, threads, timings);
+				normals_sm_cpu(mesh, threads, timings);
 			}
 			else if(proc_dev == PD_CUDA) {
-				normals_by_area_weight_sm_cuda(mesh, threads,blocks, timings);
+				normals_sm_cuda(mesh, threads,blocks, timings);
 			}
 			break;
 		}
 		case PM_GATHER: {
 			HalfedgeMesh* mesh = reinterpret_cast<HalfedgeMesh*>(mesh_pointer);
 			if (proc_dev == PD_CPU) {
-				normals_by_area_weight_he_cpu(mesh, threads, timings);
+				normals_he_cpu(mesh, threads, timings);
 			}
 			else if (proc_dev == PD_CUDA) {
-				normals_by_area_weight_he_cuda(mesh, threads, blocks, timings);
+				normals_he_cuda(mesh, threads, blocks, timings);
 			}
 			break;
 		}

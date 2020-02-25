@@ -7,8 +7,8 @@
 #include <timing_struct.hpp>
 
 namespace ab {
-	void normals_by_area_weight_he_cuda(HalfedgeMesh* mesh, int threads = 256,int blocks=1, timing_struct& timing=timing_struct());
-	void normals_by_area_weight_sm_cuda(SimpleMesh* mesh, int threads = 256, int blocks = 1, timing_struct& timing = timing_struct());
+	void normals_he_cuda(HalfedgeMesh* mesh, int threads = 256,int blocks=1, timing_struct& timing=timing_struct());
+	void normals_sm_cuda(SimpleMesh* mesh, int threads = 256, int blocks = 1, timing_struct& timing = timing_struct());
 	void centroids_he_cuda(HalfedgeMesh* mesh, attribute_vector<float3>& centroids_array, int threads = 256,int blocks = 1, timing_struct& timing = timing_struct());
 	void centroids_sm_cuda(SimpleMesh* mesh, attribute_vector<float3>& centroids, int threads = 256, int blocks = 1, timing_struct& timing = timing_struct());
 	void prepare_device();

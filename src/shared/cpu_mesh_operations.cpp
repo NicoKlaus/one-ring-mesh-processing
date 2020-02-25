@@ -37,9 +37,7 @@ namespace ab {
 		return  reinterpret_cast<int&>(old);
 	}
 
-	void cpu_kernel_normals_by_are_weight_gather(Vertex* vertices, HalfEdge* half_edges,
-			Loop* loops, float3* normals, unsigned vertice_count, int stride, int offset) {
-
+	void cpu_kernel_normals_gather(Vertex* vertices, HalfEdge* half_edges, Loop* loops, float3* normals, unsigned vertice_count,int stride,int offset) {
 		//calculate normals
 		for (int i = offset; i < vertice_count; i += stride) {
 			auto& vert = vertices[i];
@@ -47,37 +45,28 @@ namespace ab {
 				continue;
 			}
 
-			float3 normal;
-			normal.x = 0.f;
-			normal.y = 0.f;
-			normal.z = 0.f;
+			float3 normal{ 0.f,0.f,0.f };
 
-			int base_he = vert.he;
+			int he = vert.he;
 			do {//for every neighbor
-				float3 pnormal;
-				pnormal.x = 0.f;
-				pnormal.y = 0.f;
-				pnormal.z = 0.f;
-				int he = base_he;
+				HalfEdge& halfedge = half_edges[he];
 				//skip boundary loops
-				if (loops[half_edges[base_he].loop].is_border) {
-					base_he = half_edges[half_edges[base_he].inv].next;
+				if (loops[halfedge.loop].is_border) {
+					he = half_edges[halfedge.inv].next;
 					continue;
 				}
-				do {//calculate polygon normal
-					HalfEdge& halfedge = half_edges[he];
-					float3 a = vertices[halfedge.origin].position;
-					float3 b = vertices[half_edges[halfedge.next].origin].position;
-					pnormal = pnormal + cross3df(a, b);
-					he = halfedge.next;
-				} while (he != base_he);
-				normal += pnormal;
-				base_he = half_edges[half_edges[base_he].inv].next;
-			} while (base_he != vert.he);
+				float3 point_c = vertices[half_edges[halfedge.inv].origin].position;
+				float3 point_a = vertices[half_edges[halfedge.prev].origin].position;
+				//float3 point_b = vert.position;
+				float3 edge_vector_ab = vert.position - point_a;
+				float3 edge_vector_bc = point_c - vert.position;
+				normal += normalized(cross3df(edge_vector_ab, edge_vector_bc));
+
+				he = half_edges[halfedge.inv].next;
+			} while (he != vert.he);
 			normals[i] = normalized(normal);
 		}
 	}
-
 	
 	void cpu_kernel_calculate_ring_centroids_gather(Vertex* vertices, HalfEdge* half_edges, float3* centroids, unsigned vertice_count,int stride, int offset) {
 		//calculate centroids
@@ -109,29 +98,21 @@ namespace ab {
 		}
 	}
 
-	void cpu_kernel_normals_by_area_weight_scatter(float3* positions, int* faces, int* face_indices,
-			int* face_sizes, float3* normals, int face_count, int stride, int offset) {
-		for (int i = offset; i < face_count; i += stride) {
+	void cpu_kernel_normals_scatter(float3* positions, int* faces, int* face_indices, float3* normals, int face_count,int stride,int offset) {
+		for (int i = offset; i < face_count - 1; i += stride) {
 			int base_index = faces[i];
-			int face_size = face_sizes[i];
+			int next_face = faces[i + 1];
 
-			float3 point_a = positions[face_indices[base_index + (face_size - 1)]];
+			float3 point_a = positions[face_indices[next_face - 1]];
 			float3 point_b = positions[face_indices[base_index]];
+			float3 point_c = positions[face_indices[base_index + 1]];
 			float3 edge_vector_ab = point_b - point_a;
-			float3 normal;
-			normal.x = 0.f;
-			normal.y = 0.f;
-			normal.z = 0.f;
-			//circulate trough the rest of the face and calculate the normal
-			for (int j = 0; j < face_size; ++j) {
-				float3 point_c = positions[face_indices[base_index + ((j + 1) % face_size)]];
-				float3 edge_vector_bc = point_c - point_b;
-				//adding to the normal vector
-				normal += cross3df(edge_vector_ab, edge_vector_bc);
-				edge_vector_ab = edge_vector_bc;
-			}
+			float3 edge_vector_bc = point_c - point_b;
+			float3 normal{ 0.f,0.f,0.f };
+			//assume planar polygon
+			normal += normalized(cross3df(edge_vector_ab, edge_vector_bc));
 			//add to every vertice in the face
-			for (int j = 0; j < face_size; ++j) {
+			for (int j = 0; j < next_face - base_index; ++j) {
 				float3* vn = &normals[face_indices[base_index + j]];
 				atomic_add(&vn->x, normal.x);
 				atomic_add(&vn->y, normal.y);
@@ -161,11 +142,11 @@ namespace ab {
 		}
 	}
 
-	void cpu_kernel_calculate_ring_centroids_scatter(float3* positions, pair<int, int>* edges, float3* centroids, int* neighbor_counts, int edge_count,
-		int stride, int offset) {
+	void cpu_kernel_calculate_ring_centroids_scatter(float3* positions, pair<int, int>* edges, float3* centroids,
+			int* neighbor_counts, int edge_count,int stride,int offset) {
 		for (int i = offset; i < edge_count; i += stride) {
 			pair<int, int> edge = edges[i];
-			if (edge.first > -1 && edge.second > -1) {
+			if (edge.first > -1) {
 				float3* centroid_a = centroids + edge.first;
 				float3* centroid_b = centroids + edge.second;
 				float3 pa = positions[edge.first];
@@ -181,17 +162,17 @@ namespace ab {
 			}
 		}
 	}
-
-	void find_edges(pair<int, int>* pairs, int* faces, int* face_indices, int* face_sizes, int face_count, int face_index_count) {
+	
+	void find_edges(pair<int, int>* pairs, int* faces, int* face_indices, int face_count, int face_index_count) {
 		int face = 0; //face of the first vertex in the pair
 		int face_start = faces[0];
-		int next_face_start = faces[0] + face_sizes[0];
+		int next_face_start = faces[1];
 		for (int i = 0; i + 1 < face_index_count; i++) {
 			//check current face and next face
 			if (next_face_start <= i) {
 				++face;
 				face_start = faces[face];
-				next_face_start = face_start + face_sizes[face];
+				next_face_start = faces[face+1];
 			}
 			int first, second;
 			//check for edge
@@ -219,7 +200,7 @@ namespace ab {
 		}
 	};
 
-	void normals_by_area_weight_he_cpu(HalfedgeMesh* mesh, int threads, timing_struct& timing) {
+	void normals_he_cpu(HalfedgeMesh* mesh, int threads, timing_struct& timing) {
 		mesh->normals.resize(mesh->vertices.size());
 		timing.block_size = threads;
 		timing.grid_size = 1;
@@ -227,7 +208,7 @@ namespace ab {
 		auto start = std::chrono::steady_clock::now();
 		std::vector<std::thread> thread_list;
 		for (int i = 0; i < threads; ++i) {
-			thread_list.emplace_back(std::thread(cpu_kernel_normals_by_are_weight_gather, mesh->vertices.data(), mesh->half_edges.data(),
+			thread_list.emplace_back(std::thread(cpu_kernel_normals_gather, mesh->vertices.data(), mesh->half_edges.data(),
 				mesh->loops.data(), mesh->normals.data(), mesh->vertices.size(), threads, i));
 		}
 
@@ -236,9 +217,10 @@ namespace ab {
 		}
 		auto stop = std::chrono::steady_clock::now();
 		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+		timing.processing_time = timing.kernel_execution_time_a;
 	}
 
-	void normals_by_area_weight_sm_cpu(SimpleMesh* mesh, int threads, timing_struct& timing) {
+	void normals_sm_cpu(SimpleMesh* mesh, int threads, timing_struct& timing) {
 		mesh->normals.resize(mesh->positions.size());
 		timing.block_size = threads;
 		timing.grid_size = 1;
@@ -246,8 +228,8 @@ namespace ab {
 		std::vector<std::thread> thread_list;
 		auto start = std::chrono::steady_clock::now();
 		for (int i = 0; i < threads; ++i) {
-			thread_list.emplace_back(std::thread(cpu_kernel_normals_by_area_weight_scatter, mesh->positions.data(), mesh->faces.data(),
-				mesh->face_indices.data(), mesh->face_sizes.data(), mesh->normals.data(),mesh->faces.size(), threads, i));
+			thread_list.emplace_back(std::thread(cpu_kernel_normals_scatter, mesh->positions.data(), mesh->faces.data(),
+				mesh->face_indices.data(), mesh->normals.data(),mesh->faces.size(), threads, i));
 		}
 
 		for (int i = 0; i < threads; ++i) {
@@ -255,6 +237,7 @@ namespace ab {
 		}
 		auto stop = std::chrono::steady_clock::now();
 		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+		timing.processing_time = timing.kernel_execution_time_a;
 	}
 
 	void centroids_he_cpu(HalfedgeMesh* mesh, attribute_vector<float3>& centroids_array, size_t threads, timing_struct& timing) {
@@ -276,6 +259,7 @@ namespace ab {
 		
 		auto stop = std::chrono::steady_clock::now();
 		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+		timing.processing_time = timing.kernel_execution_time_a;
 	}
 
 	void centroids_sm_cpu(SimpleMesh* mesh, attribute_vector<float3>& centroids_array, size_t threads, timing_struct& timing) {
@@ -291,14 +275,17 @@ namespace ab {
 		std::vector<std::thread> thread_list;
 		std::vector<std::pair<int, int>> edges(mesh->face_indices.size()-1, std::pair<int, int>(-1, -1));//max size == edgecount <= face_indices - 1
 		start = std::chrono::steady_clock::now();
-		find_edges(edges.data(), mesh->faces.data(), mesh->face_indices.data(), mesh->face_sizes.data(), mesh->faces.size(),
-				mesh->face_indices.size());
+		find_edges(edges.data(), mesh->faces.data(), mesh->face_indices.data(), mesh->faces.size(),mesh->face_indices.size());
 		std::sort(edges.begin(), edges.end(), PairLessThan());
 		std::unique(edges.begin(), edges.end());
+		stop = std::chrono::steady_clock::now();
+		timing.kernel_execution_time_prepare = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+		
+		start = std::chrono::steady_clock::now();
 		for (int i = 0; i < threads; ++i) {
 			thread_list.emplace_back(std::thread(cpu_kernel_calculate_ring_centroids_scatter, mesh->positions.data(), edges.data(),
 				centroids_array.data(), neighbor_count.data(),edges.size(),
-				threads, i));;
+				threads, i));
 		}
 
 		for (int i = 0; i < threads; ++i) {
@@ -313,5 +300,6 @@ namespace ab {
 
 		stop = std::chrono::steady_clock::now();
 		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+		timing.processing_time = timing.kernel_execution_time_a;
 	}
 }

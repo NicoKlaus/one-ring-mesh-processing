@@ -59,7 +59,7 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	//CPU based Normals
 	{
 		std::cout << "calculate normals with cpu (halfedge mesh)\n";
-		auto time = ab::perf::execution_time([&]{normals_by_area_weight_he_cpu(&he_mesh,8);});
+		auto time = ab::perf::execution_time([&]{normals_he_cpu(&he_mesh,8);});
 		std::cout << "calculated normals in " << time.count() << "ns\n";
 		string hes_fn = fn + "-he-cpu-normals.ply";
 		std::cout << "creating file: " << hes_fn << '\n';
@@ -69,7 +69,7 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	}
 	{
 		std::cout << "calculate normals with cpu (simple mesh)\n";
-		auto time = ab::perf::execution_time([&] {normals_by_area_weight_sm_cpu(&mesh, 8); });
+		auto time = ab::perf::execution_time([&] {normals_sm_cpu(&mesh, 8); });
 		std::cout << "calculated normals in " << time.count() << "ns\n";
 		string hes_fn = fn + "-sm-cpu-normals.ply";
 		std::cout << "creating file: " << hes_fn << '\n';
@@ -82,7 +82,7 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	{
 		std::cout << "calculate normals with cuda (gather)\n";
 		he_mesh.normals.clear();
-		auto time = ab::perf::execution_time([&]{normals_by_area_weight_he_cuda(&he_mesh); });
+		auto time = ab::perf::execution_time([&]{normals_he_cuda(&he_mesh); });
 		std::cout << "calculated normals in " << time.count() << "ns\n";
 		string hes_fn = fn + "-he-cuda-normals.ply";
 		std::cout << "creating file: " << hes_fn << '\n';
@@ -93,7 +93,7 @@ bool test_mesh(string fn,bool mesh_conversion_output = false) {
 	{
 		std::cout << "calculate normals with cuda (scatter)\n";
 		mesh.normals.clear();
-		auto time = ab::perf::execution_time([&]{normals_by_area_weight_sm_cuda(&mesh); });
+		auto time = ab::perf::execution_time([&]{normals_sm_cuda(&mesh); });
 		std::cout << "calculated normals in " << time.count() << "ns\n";
 		string hes_fn = fn + "-sm-cuda-normals.ply";
 		std::cout << "creating file: " << hes_fn << '\n';
@@ -306,9 +306,12 @@ int main(int argc, char* argv[]){
 			log_data << "["<< algo_name << " block_size=" << timing.block_size << " grid_size=" << timing.grid_size 
 				<< " mesh_size=" << mesh_size << "]\n"
 				<< "data_upload_time=" << timing.data_upload_time << "\n"
+				<< "processing_time=" << timing.processing_time << "\n"
 				<< "kernel_execution_time_a=" << timing.kernel_execution_time_a << "\n"
 				<< "kernel_execution_time_b=" << timing.kernel_execution_time_b << "\n"
 				<< "kernel_execution_time_prepare=" << timing.kernel_execution_time_prepare << "\n"
+				<< "sorting_time=" << timing.sorting_time << "\n"
+				<< "unique_time=" << timing.unique_time << "\n"
 				<< "data_download_time=" << timing.data_download_time << "\n"
 				<< "vertex_count=" << vert_count << "\n"
 				<< "face_count=" << face_count << "\n"
