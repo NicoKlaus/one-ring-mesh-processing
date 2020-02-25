@@ -14,7 +14,7 @@ struct SimpleMesh
 	attribute_vector<float3> normals; //contains vertex normals
 	//connectivity
 	//std::vector<std::vector<int>> faces_vector; //list of indices
-	attribute_vector<int> faces; //elements point to the start index  of a face in face_indices
+	attribute_vector<int> faces; //elements point to the start index  of a face in face_indices, last element contains size of face_indices
 	attribute_vector<int> face_indices; //list of face indices, a face begins at face_indices[faces[i]] and ends at face_indices[faces[i]+face_size[i]-1]
 	attribute_vector<int> face_sizes; //size of every face
 

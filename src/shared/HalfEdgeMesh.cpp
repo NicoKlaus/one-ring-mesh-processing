@@ -57,8 +57,7 @@ namespace ab{
 		auto &vertices = he_mesh.vertices;
 
 		//process faces
-		//for (auto face : s_mesh.faces) {
-		for (int face = 0; face < s_mesh.faces.size();++face) {
+		for (int face = 0; face < s_mesh.faces.size()-1;++face) {
 			//add a loop
 			loops.emplace_back();
 			Loop &loop = he_mesh.loops.back();
@@ -194,6 +193,7 @@ namespace ab{
 			} while (next != origin);
 			s_mesh.face_sizes.emplace_back(size);
 		}
+		s_mesh.faces.emplace_back(s_mesh.face_indices.size());
 		return true;
 	}
 

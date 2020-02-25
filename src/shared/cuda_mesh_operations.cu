@@ -53,27 +53,23 @@ __device__ int thread_stride(){
 		}
 	}
 
-	__global__ void kernel_calculate_normals_scatter_area_weight(float3* positions,int* faces,int* face_indices,int* face_sizes, float3* normals, int face_count) {
+	__global__ void kernel_calculate_normals_scatter(float3* positions,int* faces,int* face_indices, float3* normals, int face_count) {
 		int stride = thread_stride();
 		int offset = thread_offset();
-		for (int i = offset; i < face_count; i += stride) {
+		for (int i = offset; i < face_count-1; i += stride) {
 			int base_index = faces[i];
-			int face_size = face_sizes[i];
+			int next_face = faces[i+1];
 			
-			float3 point_a = positions[face_indices[base_index+(face_size-1)]];
+			float3 point_a = positions[face_indices[next_face-1]];
 			float3 point_b = positions[face_indices[base_index]];
+			float3 point_c = positions[face_indices[base_index+1]];
 			float3 edge_vector_ab = point_b-point_a;
+			float3 edge_vector_bc = point_c-point_b;
 			float3 normal{ 0.f,0.f,0.f };
-			//circulate trough the rest of the face and calculate the normal
-			for (int j = 0;j< face_size;++j){
-				float3 point_c = positions[face_indices[base_index+((j+1)%face_size)]];
-				float3 edge_vector_bc = point_c - point_b;
-				//adding to the normal vector
-				normal += cross3df(edge_vector_ab,edge_vector_bc);
-				edge_vector_ab = edge_vector_bc;
-			}
+			//assume planar polygon
+			normal += normalized(cross3df(edge_vector_ab, edge_vector_bc));
 			//add to every vertice in the face
-			for (int j = 0;j< face_size;++j){
+			for (int j = 0;j< next_face-base_index;++j){
 				float3* vn = &normals[face_indices[base_index+j]];
 				atomicAdd(&vn->x, normal.x);
 				atomicAdd(&vn->y, normal.y);
@@ -82,7 +78,7 @@ __device__ int thread_stride(){
 		}
 	}
 
-	__global__ void kernel_calculate_normals_gather_area_weight(Vertex* vertices, HalfEdge* half_edges,Loop* loops, float3* normals, unsigned vertice_count) {
+	__global__ void kernel_calculate_normals_gather(Vertex* vertices, HalfEdge* half_edges,Loop* loops, float3* normals, unsigned vertice_count) {
 		int stride = thread_stride();
 		int offset = thread_offset();
 		
@@ -93,28 +89,25 @@ __device__ int thread_stride(){
 				continue;
 			}
 
-			float3 normal;
-			normal.x = 0.f;
-			normal.y = 0.f;
-			normal.z = 0.f;
+			float3 normal{ 0.f,0.f,0.f };
 
-			int base_he = vert.he;
+			int he = vert.he;
 			do {//for every neighbor
-				int he = base_he;
+				HalfEdge& halfedge = half_edges[he];
 				//skip boundary loops
-				if (loops[half_edges[base_he].loop].is_border) {
-					base_he = half_edges[half_edges[base_he].inv].next;
+				if (loops[halfedge.loop].is_border) {
+					he = half_edges[halfedge.inv].next;
 					continue;
 				}
-				do {//calculate polygon normal
-					HalfEdge& halfedge = half_edges[he];
-					float3 a = vertices[halfedge.origin].position;
-					float3 b = vertices[half_edges[halfedge.next].origin].position;
-					normal += cross3df(a, b);
-					he = halfedge.next;
-				} while (he != base_he);
-				base_he = half_edges[half_edges[base_he].inv].next;
-			} while (base_he != vert.he);
+				float3 point_c = vertices[half_edges[halfedge.inv].origin].position;
+				float3 point_a = vertices[half_edges[halfedge.prev].origin].position;
+				
+				float3 edge_vector_ab = vert.position - point_a;
+				float3 edge_vector_bc = point_c - vert.position;
+				normal += normalized(cross3df(edge_vector_ab, edge_vector_bc));
+
+				he = half_edges[half_edges[he].inv].next;
+			} while (he != vert.he);
 			normals[i] = normalized(normal);
 		}
 	}
@@ -237,7 +230,7 @@ __device__ int thread_stride(){
 
 	void normals_by_area_weight_he_cuda(HalfedgeMesh* mesh, int threads,int blocks, timing_struct& timing) {
 		mesh->normals.resize(mesh->vertices.size()); //prepare vector for normals
-		if (threads == 0) optimal_configuration(blocks, threads, kernel_calculate_normals_gather_area_weight);
+		if (threads == 0) optimal_configuration(blocks, threads, kernel_calculate_normals_gather);
 		timing.block_size = threads;
 		timing.grid_size = blocks;
 
@@ -257,7 +250,7 @@ __device__ int thread_stride(){
 		cudaEventCreate(&cu_stop);
 		//kernel launch
 		cudaEventRecord(cu_start);
-		kernel_calculate_normals_gather_area_weight<<<blocks,threads>>>(vertices.data().get(), 
+		kernel_calculate_normals_gather<<<blocks,threads>>>(vertices.data().get(), 
 				half_edges.data().get(),loops.data().get(), normals.data().get(), vertices.size());
 		cudaEventRecord(cu_stop);
 		cudaEventSynchronize(cu_stop);
@@ -274,7 +267,7 @@ __device__ int thread_stride(){
 	/// normals from a simple mesh
 	void normals_by_area_weight_sm_cuda(SimpleMesh* mesh,int threads,int blocks, timing_struct& timing) {
 		mesh->normals.resize(mesh->positions.size());
-		if (threads == 0) optimal_configuration(blocks, threads, kernel_calculate_normals_scatter_area_weight);
+		if (threads == 0) optimal_configuration(blocks, threads, kernel_calculate_normals_scatter);
 		timing.block_size = threads;
 		timing.grid_size = blocks;
 
@@ -282,12 +275,10 @@ __device__ int thread_stride(){
 		thrust::device_vector<float3> positions(mesh->positions);
 		thrust::device_vector<int> faces(mesh->faces);
 		thrust::device_vector<int> face_indices(mesh->face_indices);
-		thrust::device_vector<int> face_sizes(mesh->face_sizes);
 		thrust::device_vector<float3> normals(mesh->positions.size());
 		cudaMemcpyAsync(positions.data().get(), mesh->positions.data(), mesh->positions.size() * sizeof(float3), cudaMemcpyHostToDevice);
 		cudaMemcpyAsync(faces.data().get(), mesh->faces.data(), mesh->faces.size() * sizeof(int), cudaMemcpyHostToDevice);
 		cudaMemcpyAsync(face_indices.data().get(), mesh->face_indices.data(), mesh->face_indices.size() * sizeof(int), cudaMemcpyHostToDevice);
-		cudaMemcpyAsync(face_sizes.data().get(), mesh->face_sizes.data(), mesh->face_sizes.size() * sizeof(int), cudaMemcpyHostToDevice);
 		auto stop = std::chrono::steady_clock::now();
 		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 		
@@ -296,7 +287,7 @@ __device__ int thread_stride(){
 		cudaEventCreate(&cu_stop);
 		//run kernel
 		cudaEventRecord(cu_start);
-		kernel_calculate_normals_scatter_area_weight<<<blocks, threads>>>(positions.data().get(), faces.data().get(), face_indices.data().get(), face_sizes.data().get(), normals.data().get(), faces.size());
+		kernel_calculate_normals_scatter<<<blocks, threads>>>(positions.data().get(), faces.data().get(), face_indices.data().get(), normals.data().get(), faces.size());
 		cudaEventRecord(cu_stop);
 		cudaEventSynchronize(cu_stop);
 		timing.kernel_execution_time_a = cuda_elapsed_time(cu_start, cu_stop);

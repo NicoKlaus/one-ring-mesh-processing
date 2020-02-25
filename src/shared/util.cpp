@@ -35,6 +35,7 @@ namespace ab {
 				mesh.face_indices.emplace_back(vert);
 			}
 		}
+		mesh.faces.push_back(mesh.face_indices.size());
 		return true;
 	}
 
@@ -111,7 +112,7 @@ namespace ab {
 
 		//faces
 		std::vector<std::vector<int>> faces_vector;
-		for (int i = 0; i < mesh.faces.size(); ++i) {
+		for (int i = 0; i < mesh.faces.size()-1; ++i) {
 			std::vector<int> face;
 			for (int j = 0; j < mesh.face_sizes[i]; ++j) {
 				face.emplace_back(mesh.face_indices[mesh.faces[i] + j]);

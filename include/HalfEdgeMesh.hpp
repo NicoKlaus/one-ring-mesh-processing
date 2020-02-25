@@ -6,7 +6,7 @@
 
 namespace ab {
 
-	struct alignas(4) Vertex {
+	struct alignas(16) Vertex {
 		float3 position;
 		int he; //is -1 when no face contains this vertex
 	};
@@ -16,7 +16,7 @@ namespace ab {
 		bool is_border;
 	};
 
-	struct HalfEdge {
+	struct alignas(16) HalfEdge {
 		int origin;
 		int loop;
 
