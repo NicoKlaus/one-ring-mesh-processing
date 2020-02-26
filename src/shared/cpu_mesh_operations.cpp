@@ -2,6 +2,7 @@
 #include <intrin.h>
 #include <utility>
 #include <algorithm>
+#include <mutex>
 
 using namespace std;
 
@@ -37,6 +38,22 @@ namespace ab {
 		return  reinterpret_cast<int&>(old);
 	}
 
+	void cpu_kernel_normalize_vectors(float3* vec, unsigned size, int stride, int offset) {
+		for (int i = offset; i < size; i += stride) {
+			vec[i] = normalized(vec[i]);
+		}
+	}
+
+
+	void cpu_kernel_divide(float3* vec, int* div, unsigned vec_size, int stride, int offset) {
+		for (int i = offset; i < vec_size; i += stride) {
+			float fdiv = 1.f / static_cast<float>(div[i]);
+			vec[i].x *= fdiv;
+			vec[i].y *= fdiv;
+			vec[i].z *= fdiv;
+		}
+	}
+
 	void cpu_kernel_normals_gather(Vertex* vertices, HalfEdge* half_edges, Loop* loops, float3* normals, unsigned vertice_count,int stride,int offset) {
 		//calculate normals
 		for (int i = offset; i < vertice_count; i += stride) {
@@ -67,7 +84,7 @@ namespace ab {
 			normals[i] = normalized(normal);
 		}
 	}
-	
+
 	void cpu_kernel_calculate_ring_centroids_gather(Vertex* vertices, HalfEdge* half_edges, float3* centroids, unsigned vertice_count,int stride, int offset) {
 		//calculate centroids
 		for (int i = offset; i < vertice_count; i += stride) {
@@ -235,6 +252,14 @@ namespace ab {
 		for (int i = 0; i < threads; ++i) {
 			thread_list[i].join();
 		}
+		thread_list.resize(0);
+		for (int i = 0; i < threads; ++i) {
+			thread_list.emplace_back(std::thread(cpu_kernel_normalize_vectors, mesh->normals.data(), mesh->normals.size(), threads, i));
+		}
+		for (int i = 0; i < threads; ++i) {
+			thread_list[i].join();
+		}
+
 		auto stop = std::chrono::steady_clock::now();
 		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 		timing.processing_time = timing.kernel_execution_time_a;
@@ -263,7 +288,7 @@ namespace ab {
 	}
 
 	void centroids_sm_cpu(SimpleMesh* mesh, attribute_vector<float3>& centroids_array, size_t threads, timing_struct& timing) {
-		centroids_array.resize(mesh->positions.size());
+		centroids_array.resize(mesh->positions.size(), { 0,0,0 });
 		timing.block_size = threads;
 		timing.grid_size = 1;
 
@@ -273,11 +298,13 @@ namespace ab {
 		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 
 		std::vector<std::thread> thread_list;
+		thread_list.reserve(threads);
 		std::vector<std::pair<int, int>> edges(mesh->face_indices.size()-1, std::pair<int, int>(-1, -1));//max size == edgecount <= face_indices - 1
 		start = std::chrono::steady_clock::now();
 		find_edges(edges.data(), mesh->faces.data(), mesh->face_indices.data(), mesh->faces.size(),mesh->face_indices.size());
 		std::sort(edges.begin(), edges.end(), PairLessThan());
-		std::unique(edges.begin(), edges.end());
+		auto end = std::unique(edges.begin(), edges.end());
+		edges.resize(end-edges.begin());
 		stop = std::chrono::steady_clock::now();
 		timing.kernel_execution_time_prepare = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 		
@@ -287,17 +314,16 @@ namespace ab {
 				centroids_array.data(), neighbor_count.data(),edges.size(),
 				threads, i));
 		}
-
 		for (int i = 0; i < threads; ++i) {
 			thread_list[i].join();
 		}
-
-		for (int i = 0; i < centroids_array.size(); ++i) {
-			centroids_array[i].x /= neighbor_count[i];
-			centroids_array[i].y /= neighbor_count[i];
-			centroids_array[i].z /= neighbor_count[i];
+		thread_list.resize(0);
+		for (int i = 0; i < threads; ++i) {
+			thread_list.emplace_back(std::thread(cpu_kernel_divide,centroids_array.data(), neighbor_count.data(),centroids_array.size(),threads, i));
 		}
-
+		for (int i = 0; i < threads; ++i) {
+			thread_list[i].join();
+		}
 		stop = std::chrono::steady_clock::now();
 		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 		timing.processing_time = timing.kernel_execution_time_a;

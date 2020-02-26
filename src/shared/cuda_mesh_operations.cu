@@ -392,7 +392,8 @@ __device__ int thread_stride(){
 		stop = std::chrono::steady_clock::now();
 		timing.sorting_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 		start = std::chrono::steady_clock::now();
-		thrust::unique(edges.begin(), edges.end());
+		auto last = thrust::unique(edges.begin(), edges.end());
+		edges.resize(last-edges.begin());
 		stop = std::chrono::steady_clock::now();
 		timing.unique_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 
