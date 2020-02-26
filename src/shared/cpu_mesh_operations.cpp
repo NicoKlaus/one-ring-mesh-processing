@@ -299,7 +299,7 @@ namespace ab {
 
 		std::vector<std::thread> thread_list;
 		thread_list.reserve(threads);
-		std::vector<std::pair<int, int>> edges(mesh->face_indices.size()-1, std::pair<int, int>(-1, -1));//max size == edgecount <= face_indices - 1
+		attribute_vector<std::pair<int, int>> edges(mesh->face_indices.size()-1, std::pair<int, int>(-1, -1));//max size == edgecount <= face_indices - 1
 		start = std::chrono::steady_clock::now();
 		find_edges(edges.data(), mesh->faces.data(), mesh->face_indices.data(), mesh->faces.size(),mesh->face_indices.size());
 		std::sort(edges.begin(), edges.end(), PairLessThan());
