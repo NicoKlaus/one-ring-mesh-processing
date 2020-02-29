@@ -16,7 +16,7 @@ namespace ab {
 		bool is_border;
 	};
 
-	struct alignas(16) HalfEdge {
+	struct HalfEdge {
 		int origin;
 		int loop;
 
