@@ -6,14 +6,21 @@
 
 namespace ab {
 
-	struct alignas(16) Vertex {
+	struct Vertex {
 		float3 position;
 		int he; //is -1 when no face contains this vertex
 	};
 
-	struct alignas(8) Loop {
+	struct Loop {
 		int he;
 		bool is_border;
+	};
+
+	struct alignas(16) ReducedHalfEdge {
+		int origin;
+		int loop;
+		int next;
+		int inv;
 	};
 
 	struct HalfEdge {
@@ -29,8 +36,21 @@ namespace ab {
 		attribute_vector<Vertex> vertices;
 		attribute_vector<float3> normals;
 		attribute_vector<HalfEdge> half_edges;
+		attribute_vector<ReducedHalfEdge> reduced_half_edges;
 		attribute_vector<Loop> loops;
 	};
+
+	inline void create_reduced_halfedges(HalfedgeMesh& mesh) {
+		mesh.reduced_half_edges.resize(mesh.half_edges.size());
+		for (int i = 0; i < mesh.reduced_half_edges.size(); ++i) {
+			ReducedHalfEdge halfedge;
+			halfedge.inv = mesh.half_edges[i].inv;
+			halfedge.next = mesh.half_edges[i].next;
+			halfedge.loop = mesh.half_edges[i].loop;
+			halfedge.origin = mesh.half_edges[i].origin;
+			mesh.reduced_half_edges[i] = halfedge;
+		}
+	}
 
 	inline int vertex_count_of(const HalfedgeMesh& mesh) {
 		return mesh.vertices.size();

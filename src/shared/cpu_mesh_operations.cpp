@@ -288,6 +288,7 @@ namespace ab {
 	}
 
 	void centroids_sm_cpu(SimpleMesh* mesh, attribute_vector<float3>& centroids_array, size_t threads, timing_struct& timing) {
+		centroids_array.clear();
 		centroids_array.resize(mesh->positions.size(), { 0,0,0 });
 		timing.block_size = threads;
 		timing.grid_size = 1;
