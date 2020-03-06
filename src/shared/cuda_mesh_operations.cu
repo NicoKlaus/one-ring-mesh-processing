@@ -375,9 +375,9 @@ __device__ int thread_stride(){
 		std::chrono::steady_clock::time_point start, stop, pstart, pstop;
 
 		start = std::chrono::steady_clock::now(); //upload time
-		thrust::device_vector<float3> positions(mesh->positions);
-		thrust::device_vector<int> faces(mesh->faces);
-		thrust::device_vector<int> face_indices(mesh->face_indices);
+		thrust::device_vector<float3> positions(mesh->positions.size());
+		thrust::device_vector<int> faces(mesh->faces.size());
+		thrust::device_vector<int> face_indices(mesh->face_indices.size());
 		thrust::device_vector<float3> normals(mesh->positions.size());
 		cudaMemcpyAsync(positions.data().get(), mesh->positions.data(), mesh->positions.size() * sizeof(float3), cudaMemcpyHostToDevice);
 		cudaMemcpyAsync(faces.data().get(), mesh->faces.data(), mesh->faces.size() * sizeof(int), cudaMemcpyHostToDevice);
