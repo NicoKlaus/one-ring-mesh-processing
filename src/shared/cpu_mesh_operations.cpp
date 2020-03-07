@@ -327,6 +327,6 @@ namespace ab {
 		}
 		stop = std::chrono::steady_clock::now();
 		timing.kernel_execution_time_a = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
-		timing.processing_time = timing.kernel_execution_time_a;
+		timing.processing_time = timing.kernel_execution_time_a+timing.kernel_execution_time_prepare;
 	}
 }
