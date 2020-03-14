@@ -20,7 +20,6 @@ namespace ab {
 	}
 
 	
-
 #if __CUDA_ARCH__ < 600
 	__device__ int atomicAdd(int* address, int val)
 	{
@@ -35,6 +34,7 @@ namespace ab {
 	}
 #endif
 
+//code from https://www.micc.unifi.it/bertini/download/gpu-programming-basics/2017/gpu_cuda_5.pdf
 #if __CUDA_ARCH__ < 600
 	__device__ double atomicAdd(double* address, double val)
 	{
