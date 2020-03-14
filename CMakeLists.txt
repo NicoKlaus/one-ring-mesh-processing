@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(onering LANGUAGES CUDA CXX)
-message("one ring test 0.1.3")
+
 set (CMAKE_CXX_STANDARD 11)
 set (BOOST_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/lib/boost_1_72_0" CACHE PATH "")
 set( Boost_USE_MULTITHREADED ON )
@@ -25,7 +25,7 @@ target_include_directories(onering_lib PUBLIC
 
 add_executable(onering ${onering_source} ${headers})
 target_link_libraries(onering Boost::program_options Boost::filesystem onering_lib)
-target_compile_options(onering_lib PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-ftz=true>)
+target_compile_options(onering_lib PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-ftz=true -gencode arch=compute_70,code=sm70>)
 
-add_executable(onering_vtkm ${onering_vtkm_source} ${headers})
-target_link_libraries(onering_vtkm Boost::program_options vtkm_cont vtkm_filter onering_lib)
+#add_executable(onering_vtkm ${onering_vtkm_source} ${headers})
+#target_link_libraries(onering_vtkm Boost::program_options vtkm_cont vtkm_filter onering_lib)
