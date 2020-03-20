@@ -376,12 +376,12 @@ __device__ int thread_stride(){
 
 		start = std::chrono::steady_clock::now(); //upload time
 		thrust::device_vector<float3> positions(mesh->positions.size());
-		thrust::device_vector<int> faces(mesh->faces.size());
-		thrust::device_vector<int> face_indices(mesh->face_indices.size());
+		thrust::device_vector<int> faces(mesh->face_starts.size());
+		thrust::device_vector<int> face_indices(mesh->faces.size());
 		thrust::device_vector<float3> normals(mesh->positions.size());
 		cudaMemcpyAsync(positions.data().get(), mesh->positions.data(), mesh->positions.size() * sizeof(float3), cudaMemcpyHostToDevice);
-		cudaMemcpyAsync(faces.data().get(), mesh->faces.data(), mesh->faces.size() * sizeof(int), cudaMemcpyHostToDevice);
-		cudaMemcpyAsync(face_indices.data().get(), mesh->face_indices.data(), mesh->face_indices.size() * sizeof(int), cudaMemcpyHostToDevice);
+		cudaMemcpyAsync(faces.data().get(), mesh->face_starts.data(), mesh->face_starts.size() * sizeof(int), cudaMemcpyHostToDevice);
+		cudaMemcpyAsync(face_indices.data().get(), mesh->faces.data(), mesh->faces.size() * sizeof(int), cudaMemcpyHostToDevice);
 		cudaDeviceSynchronize();
 		stop = std::chrono::steady_clock::now();
 		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
@@ -466,14 +466,14 @@ __device__ int thread_stride(){
 		//Data Upload Phase
 		start = std::chrono::steady_clock::now();
 		thrust::device_vector<float3> positions(mesh->positions.size());
-		thrust::device_vector<int> faces(mesh->faces.size());
-		thrust::device_vector<int> faces_indices(mesh->face_indices.size());
+		thrust::device_vector<int> faces(mesh->face_starts.size());
+		thrust::device_vector<int> faces_indices(mesh->faces.size());
 		thrust::device_vector<float3> centroids(mesh->positions.size(), { 0,0,0 });
 		thrust::device_vector<int> neighbor_count(mesh->positions.size(), 0);
 		thrust::device_vector<pair<int, int>> edges(faces_indices.size() - 1, pair<int, int>(-1, -1));//max size == edgecount <= face_indices - 1
 		cudaMemcpyAsync(positions.data().get(), mesh->positions.data(), mesh->positions.size() * sizeof(float3), cudaMemcpyHostToDevice);
-		cudaMemcpyAsync(faces.data().get(), mesh->faces.data(), mesh->faces.size() * sizeof(int), cudaMemcpyHostToDevice);
-		cudaMemcpyAsync(faces_indices.data().get(), mesh->face_indices.data(), mesh->face_indices.size() * sizeof(int), cudaMemcpyHostToDevice);
+		cudaMemcpyAsync(faces.data().get(), mesh->face_starts.data(), mesh->face_starts.size() * sizeof(int), cudaMemcpyHostToDevice);
+		cudaMemcpyAsync(faces_indices.data().get(), mesh->faces.data(), mesh->faces.size() * sizeof(int), cudaMemcpyHostToDevice);
 		cudaDeviceSynchronize();
 		stop = std::chrono::steady_clock::now();
 		timing.data_upload_time = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();

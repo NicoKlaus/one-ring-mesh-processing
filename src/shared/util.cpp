@@ -22,20 +22,20 @@ namespace ab {
 		std::vector<std::vector<int>> faces_vector = plyIn.getElement("face").getListProperty<int>("vertex_indices");
 
 		//clear vectors
+		mesh.face_starts.resize(0);
 		mesh.faces.resize(0);
-		mesh.face_indices.resize(0);
 		mesh.face_sizes.resize(0);
 		//encode face information inside 3 arrays
 		for (auto face : faces_vector) {
 			//store begin and size of the face
 			mesh.face_sizes.emplace_back(face.size());
-			mesh.faces.emplace_back(mesh.face_indices.size());
+			mesh.face_starts.emplace_back(mesh.faces.size());
 			//append face indices
 			for (auto vert : face) {
-				mesh.face_indices.emplace_back(vert);
+				mesh.faces.emplace_back(vert);
 			}
 		}
-		mesh.faces.push_back(mesh.face_indices.size());
+		mesh.face_starts.push_back(mesh.faces.size());
 		return true;
 	}
 
@@ -112,10 +112,10 @@ namespace ab {
 
 		//faces
 		std::vector<std::vector<int>> faces_vector;
-		for (int i = 0; i < mesh.faces.size()-1; ++i) {
+		for (int i = 0; i < mesh.face_starts.size()-1; ++i) {
 			std::vector<int> face;
 			for (int j = 0; j < mesh.face_sizes[i]; ++j) {
-				face.emplace_back(mesh.face_indices[mesh.faces[i] + j]);
+				face.emplace_back(mesh.faces[mesh.face_starts[i] + j]);
 			}
 			faces_vector.emplace_back(face);
 		}

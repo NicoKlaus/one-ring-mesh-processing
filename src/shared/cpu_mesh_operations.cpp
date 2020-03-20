@@ -245,8 +245,8 @@ namespace ab {
 		std::vector<std::thread> thread_list;
 		auto start = std::chrono::steady_clock::now();
 		for (int i = 0; i < threads; ++i) {
-			thread_list.emplace_back(std::thread(cpu_kernel_normals_scatter, mesh->positions.data(), mesh->faces.data(),
-				mesh->face_indices.data(), mesh->normals.data(),mesh->faces.size(), threads, i));
+			thread_list.emplace_back(std::thread(cpu_kernel_normals_scatter, mesh->positions.data(), mesh->face_starts.data(),
+				mesh->faces.data(), mesh->normals.data(),mesh->face_starts.size(), threads, i));
 		}
 
 		for (int i = 0; i < threads; ++i) {
@@ -300,9 +300,9 @@ namespace ab {
 
 		std::vector<std::thread> thread_list;
 		thread_list.reserve(threads);
-		attribute_vector<std::pair<int, int>> edges(mesh->face_indices.size()-1, std::pair<int, int>(-1, -1));//max size == edgecount <= face_indices - 1
+		attribute_vector<std::pair<int, int>> edges(mesh->faces.size()-1, std::pair<int, int>(-1, -1));//max size == edgecount <= face_indices - 1
 		start = std::chrono::steady_clock::now();
-		find_edges(edges.data(), mesh->faces.data(), mesh->face_indices.data(), mesh->faces.size(),mesh->face_indices.size());
+		find_edges(edges.data(), mesh->face_starts.data(), mesh->faces.data(), mesh->face_starts.size(),mesh->faces.size());
 		std::sort(edges.begin(), edges.end(), PairLessThan());
 		auto end = std::unique(edges.begin(), edges.end());
 		edges.resize(end-edges.begin());

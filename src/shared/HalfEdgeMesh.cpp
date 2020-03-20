@@ -57,7 +57,7 @@ namespace ab{
 		auto &vertices = he_mesh.vertices;
 
 		//process faces
-		for (int face = 0; face < s_mesh.faces.size()-1;++face) {
+		for (int face = 0; face < s_mesh.face_starts.size()-1;++face) {
 			//add a loop
 			loops.emplace_back();
 			Loop &loop = he_mesh.loops.back();
@@ -68,7 +68,7 @@ namespace ab{
 			int prev_he = halfedges.size()+s_mesh.face_sizes[face]-1;//set first prev to the last he in the loop
 			//for (auto vert_ind : face) {
 			for (int i = 0; i < s_mesh.face_sizes[face]; ++i) {
-				int vert_ind = s_mesh.face_indices[s_mesh.faces[face] + i];
+				int vert_ind = s_mesh.faces[s_mesh.face_starts[face] + i];
 				he_mesh.half_edges.emplace_back();
 				HalfEdge &he = he_mesh.half_edges.back();
 				//set inv pointer to -1 to mark missing links
@@ -165,8 +165,8 @@ namespace ab{
 	{
 		//reset arrays
 		s_mesh.positions.resize(0);
+		s_mesh.face_starts.resize(0);
 		s_mesh.faces.resize(0);
-		s_mesh.face_indices.resize(0);
 		s_mesh.face_sizes.resize(0);
 		s_mesh.normals.resize(0);
 		s_mesh.normals = he_mesh.normals;
@@ -183,17 +183,17 @@ namespace ab{
 			int origin = he_mesh.loops[i].he;
 			int next = origin;
 			//start a new face
-			s_mesh.faces.emplace_back(s_mesh.face_indices.size());
+			s_mesh.face_starts.emplace_back(s_mesh.faces.size());
 			
 			int size = 0;
 			do {
-				s_mesh.face_indices.emplace_back(he_mesh.half_edges[next].origin);
+				s_mesh.faces.emplace_back(he_mesh.half_edges[next].origin);
 				next = he_mesh.half_edges[next].next;
 				++size;
 			} while (next != origin);
 			s_mesh.face_sizes.emplace_back(size);
 		}
-		s_mesh.faces.emplace_back(s_mesh.face_indices.size());
+		s_mesh.face_starts.emplace_back(s_mesh.faces.size());
 		return true;
 	}
 

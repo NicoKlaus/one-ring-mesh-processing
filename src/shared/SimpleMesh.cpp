@@ -50,10 +50,10 @@ namespace ab {
 
 		//faces
 		std::vector<std::vector<int>> faces_vector;
-		for (int i = 0;i < mesh.faces.size();++i) {
+		for (int i = 0;i < mesh.face_starts.size();++i) {
 			std::vector<int> face;
 			for (int j = 0; j < mesh.face_sizes[i];++j) {
-				face.emplace_back(mesh.face_indices[mesh.faces[i] + j]);
+				face.emplace_back(mesh.faces[mesh.face_starts[i] + j]);
 			}
 			faces_vector.emplace_back(face);
 		}
