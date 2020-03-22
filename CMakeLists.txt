@@ -10,11 +10,11 @@ set (Boost_NO_SYSTEM_PATHS  ON)
 
 find_package(Boost 1.72.0 REQUIRED COMPONENTS program_options filesystem thread)
 set(VTKm_ENABLE_TESTING OFF CACHE BOOL "")
-add_subdirectory(lib/vtk-m)
+#add_subdirectory(lib/vtk-m)
 file(GLOB headers "${PROJECT_SOURCE_DIR}/include/*")
 file(GLOB shared_source "${PROJECT_SOURCE_DIR}/src/shared/*")
 file(GLOB onering_source "${PROJECT_SOURCE_DIR}/src/onering/*")
-file(GLOB onering_vtkm_source "${PROJECT_SOURCE_DIR}/src/onering-vtkm/*")
+#file(GLOB onering_vtkm_source "${PROJECT_SOURCE_DIR}/src/onering-vtkm/*")
 list(APPEND headers "${CMAKE_CURRENT_SOURCE_DIR}/lib/happly/happly.h")
 
 add_library(onering_lib STATIC ${shared_source} ${headers})
