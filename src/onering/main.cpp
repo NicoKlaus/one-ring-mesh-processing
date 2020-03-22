@@ -165,14 +165,14 @@ int main(int argc, char* argv[]){
 			("help,h", "Help screen")
 			("in", value<string>(), "Ply File for reading")
 			("out", value<string>(), "Ply File for writing")
-			("test", value<string>(), "runs tests,= Ply File for testing")
-			("algorithm", value<string>(), "normals-gather-cuda|normals-scatter-cuda|centroids-gather-cuda|centroids-scatter-cuda")
+			("test", value<string>(), "runs function tests,= ply File used as input for testing")
+			("algorithm", value<string>(), "[normals-gather-<dev>|normals-scatter-<dev>|centroids-gather-<dev>|centroids-scatter-<dev>]\n replace <dev> with cuda or cpu")
 			("threads", value<int>(), "threads per block, blocks and threads are determined automatically if ommited")
 			("blocks", value<int>(), "blocks in the grid, has no effect for cpu only algorithms, determined automatically if --threads ommited")
 			("runs", value<int>(), "=N ,run calculation N times for extensive time mesuring")
-			("time-log", value<string>(), "saves timings to file")
+			("time-log", value<string>(), "saves timings to a log file")
 			("strip-attributes", value<bool>(), "removes all attributes from the mesh except positions and connectivity")
-			("sort", value<bool>(), "sorts input mesh by veretx valenz");
+			("sort", value<bool>(), "sort input mesh internaly by veretx degree and store result in the file given by the option --out");
 
 		variables_map vm;
 		store(parse_command_line(argc, argv, desc), vm);
