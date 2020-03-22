@@ -25,4 +25,4 @@ onering.exe  --algorithm="normals-gather-cuda" --in=bunny.ply --out=bunny-normal
 For building boost
 cd lib/<boost dir>
 bootstrap
-./b2
+.\b2 --with-program_options --with-filesystem --with-system
