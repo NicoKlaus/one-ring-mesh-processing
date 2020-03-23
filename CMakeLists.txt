@@ -25,7 +25,7 @@ target_include_directories(onering_lib PUBLIC
 
 add_executable(onering ${onering_source} ${headers})
 target_link_libraries(onering Boost::program_options Boost::filesystem onering_lib)
-target_compile_options(onering_lib PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-ftz=true -gencode arch=compute_70,code=sm_70 -gencode arch=compute_30,code=sm_30>)
+target_compile_options(onering_lib PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-ftz=true -gencode arch=compute_70,code=sm_70>)
 
 #add_executable(onering_vtkm ${onering_vtkm_source} ${headers})
 #target_link_libraries(onering_vtkm Boost::program_options vtkm_cont vtkm_filter onering_lib)
